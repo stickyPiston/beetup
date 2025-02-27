@@ -4,8 +4,8 @@ import Browser
 import Browser exposing (UrlRequest, Document)
 import Browser.Navigation exposing (Key)
 
-import Html exposing (Html, form, input, label, text, br)
-import Html.Events exposing (onSubmit, onInput)
+import Html exposing (Html, form, input, label, text, br, button)
+import Html.Events exposing (onSubmit, onInput, onClick)
 import Html.Attributes exposing (name, type_, value)
 
 import Url exposing (Url)
@@ -69,6 +69,8 @@ type Msg
     | UsernameChanged String
     | PasswordChanged String
     | GotUser (Result Http.Error User)
+    | Logout
+    | LoggedOut (Result Http.Error ())
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -106,6 +108,19 @@ update msg model =
                 |> Result.withDefault model
             , Cmd.none
             )
+        Logout ->
+            ( model
+            , Http.get
+                { url = "http://localhost:8001/logout"
+                , expect = Http.expectWhatever LoggedOut
+                }
+            )
+        LoggedOut response ->
+            ( response
+                |> Result.map (\_ -> { model | user = Nothing })
+                |> Result.withDefault model
+            , Cmd.none
+            )
 
 loginEncoder : LoginForm -> Encode.Value
 loginEncoder login = Encode.object 
@@ -127,7 +142,10 @@ view model =
     }
 
 viewLoggedIn : User -> List (Html Msg)
-viewLoggedIn user = [text ("Welcome " ++ user.name ++ "!")]
+viewLoggedIn user =
+    [ text ("Welcome " ++ user.name ++ "!")
+    , button [onClick Logout] [text "Log out"]
+    ]
 
 viewLoginForm : LoginForm -> List (Html Msg)
 viewLoginForm loginForm =

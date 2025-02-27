@@ -27,6 +27,7 @@ main = do
       (notFound missing)
       [ post "/login" (login sessions conn)
       , get "/user" (user sessions conn)
+      , get "/logout" (logout sessions)
       ]
 
 initDB :: Connection -> IO ()
@@ -91,6 +92,15 @@ user sessions conn = do
   case result of
     [map fromSql -> [name]] -> send $ json $ LoginResponse name userID
     _ -> next
+
+logout :: Sessions -> ResponderM a
+logout sessions = do
+  cookie <- cookieParamMaybe "SESSION"
+  case cookie >>= fromText of
+    Just sessionID ->
+      liftIO $ modifyIORef' sessions (M.delete sessionID)
+    _ -> return ()
+  send $ raw status200 [] ""
 
 missing :: ResponderM a
 missing = send $ html "Not found..."
