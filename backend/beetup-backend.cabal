@@ -26,5 +26,6 @@ executable beetup-backend
                       , HDBC
                       , HDBC-sqlite3
                       , password
+                      , uuid
     hs-source-dirs:     app
     default-language:   Haskell2010

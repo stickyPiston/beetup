@@ -53,7 +53,12 @@ init () url _ =
                 }
             , user = Nothing
             }
-     in (model, Cmd.none)
+     in ( model
+        , Http.get
+            { url = "http://localhost:8001/user"
+            , expect = Http.expectJson GotUser userDecoder
+            }
+        )
 
 type Msg
     = Increment

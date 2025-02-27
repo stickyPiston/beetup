@@ -9,16 +9,25 @@ import Database.HDBC (IConnection(commit, runRaw), quickQuery', toSql, fromSql, 
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import Data.Password.Bcrypt
+import Data.IORef (IORef, newIORef, modifyIORef', readIORef)
+import qualified Data.Map as M
+import Data.UUID (UUID, fromText, toText)
+import Data.UUID.V4 (nextRandom)
+
+type Sessions = IORef (M.Map UUID Text)
 
 main :: IO ()
 main = do
   conn <- connectSqlite3 "main.db"
+  sessions <- newIORef M.empty
   initDB conn
 
   Warp.run 8001 $
     foldr ($)
       (notFound missing)
-      [ post "/login" (login conn) ]
+      [ post "/login" (login sessions conn)
+      , get "/user" (user sessions conn)
+      ]
 
 initDB :: Connection -> IO ()
 initDB conn = do
@@ -51,8 +60,8 @@ data LoginResponse = LoginResponse
 instance ToJSON LoginResponse where
   toJSON (LoginResponse name id) = object ["name" .= name, "id" .= id]
 
-login :: Connection -> ResponderM a
-login conn = do
+login :: Sessions -> Connection -> ResponderM a
+login sessions conn = do
   LoginParams username (mkPassword -> password) <- fromBody
   foundUsers <- liftIO $ quickQuery'
     conn
@@ -60,10 +69,28 @@ login conn = do
     [toSql username]
   case foundUsers of
     [map fromSql -> [id, name, PasswordHash -> pwHash]]
-      | checkPassword password pwHash == PasswordCheckSuccess ->
-        respond $ json $ LoginResponse name (pack $ show id)
+      | checkPassword password pwHash == PasswordCheckSuccess -> do
+        sessionID <- liftIO nextRandom
+        liftIO $ modifyIORef' sessions $ M.insert sessionID id
+        respond $ withCookie "SESSION" (toText sessionID) $ json $ LoginResponse name (pack $ show id)
     _ -> respond $ status unauthorized401 $ html ""
   where respond = send . withHeader ("Access-Control-Allow-Origin", "*")
+
+requireSession :: Sessions -> ResponderM Text
+requireSession sessions = do
+  sessionCookie <- cookieParamMaybe "SESSION"
+  sessionMap <- liftIO $ readIORef sessions
+  case sessionCookie >>= fromText >>= (sessionMap M.!?) of
+    Just userID -> return userID
+    Nothing -> send $ status unauthorized401 $ html ""
+
+user :: Sessions -> Connection -> ResponderM a
+user sessions conn = do
+  userID <- requireSession sessions
+  result <- liftIO $ quickQuery' conn "SELECT name FROM users WHERE id = ?" [toSql userID]
+  case result of
+    [map fromSql -> [name]] -> send $ json $ LoginResponse name userID
+    _ -> next
 
 missing :: ResponderM a
 missing = send $ html "Not found..."
