@@ -8,6 +8,7 @@ let
   ];
   shellDeps = with pkgs; [
     git
+    live-server
   ];
 in pkgs.mkShell {
     buildInputs = shellDeps ++ elmDeps;
