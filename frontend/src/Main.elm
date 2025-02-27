@@ -1,12 +1,14 @@
 module Main exposing (..)
 
 import Browser
-import Html exposing (button, div, text)
-import Html.Events exposing (onClick)
-import Browser exposing (Document)
+import Browser exposing (UrlRequest, Document)
 import Browser.Navigation exposing (Key)
+
+import Html exposing (form, input, label, text, br)
+import Html.Events exposing (onSubmit, onInput)
+import Html.Attributes exposing (name, type_, value)
+
 import Url exposing (Url)
-import Browser exposing (UrlRequest)
 
 main : Program () Model Msg
 main = Browser.application
@@ -21,11 +23,13 @@ main = Browser.application
 type alias Model =
     { count : Int
     , currentUrl : Url
+    , username : String
+    , password : String
     }
 
 init : () -> Url -> Key -> (Model, Cmd Msg)
 init () url _ = 
-    let model = { count = 0, currentUrl = url }
+    let model = { count = 0, currentUrl = url, password = "", username = "" }
      in (model, Cmd.none)
 
 type Msg
@@ -33,6 +37,9 @@ type Msg
     | Decrement
     | OnUrlChange Url
     | OnUrlRequest UrlRequest
+    | LoginFormSubmit
+    | UsernameChanged String
+    | PasswordChanged String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -50,15 +57,22 @@ update msg model =
             , Cmd.none
             )
         OnUrlRequest _ -> (model, Cmd.none)
+        UsernameChanged new -> ({ model | username = new }, Cmd.none)
+        PasswordChanged new -> ({ model | password = new }, Cmd.none)
+        LoginFormSubmit -> Debug.log (Debug.toString model) (model, Cmd.none)
 
 view : Model -> Document Msg
 view model =
     { title = "Elm"
     , body = 
-        [ div []
-            [ button [ onClick Decrement ] [ text "-" ]
-            , div [] [ text (String.fromInt model.count) ]
-            , button [ onClick Increment ] [ text "+" ]
+        [ form [onSubmit LoginFormSubmit]
+            [ label [] [text "Username: "]
+            , input [value model.username, type_ "text", name "username", onInput UsernameChanged] []
+            , br [] []
+            , label [] [text "Password: "]
+            , input [value model.password, type_ "password", name "password", onInput PasswordChanged] []
+            , br [] []
+            , input [type_ "submit"] []
             ]
         ]
     }
