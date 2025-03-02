@@ -16,6 +16,7 @@ executable beetup-backend
     -- other-modules:
     default-extensions: OverloadedStrings
                       , ViewPatterns
+                      , DuplicateRecordFields
     build-depends:      base ^>=4.17.2.1
                       , twain
                       , warp

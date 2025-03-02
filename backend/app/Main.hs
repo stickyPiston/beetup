@@ -26,6 +26,7 @@ main = do
     foldr ($)
       (notFound missing)
       [ post "/login" (login sessions conn)
+      , post "/register" (register sessions conn)
       , get "/user" (user sessions conn)
       , get "/logout" (logout sessions)
       ]
@@ -102,5 +103,36 @@ logout sessions = do
     _ -> return ()
   send $ raw status200 [] ""
 
+data RegisterParams = RegisterParams
+  { username :: Text
+  , password :: Text
+  , name :: Text
+  }
+
+instance FromJSON RegisterParams where
+  parseJSON = withObject "RegisterParams" $ \ o -> RegisterParams
+    <$> o .: "username"
+    <*> o .: "password"
+    <*> o .: "name"
+
+register :: Sessions -> Connection -> ResponderM a
+register sessions conn = do
+  RegisterParams username (mkPassword -> password) name <- fromBody
+  -- TODO: Validation
+  hashedPassword <- liftIO $ hashPassword password
+  _ <- liftIO $ run
+    conn
+    "INSERT INTO users (username, password, name) VALUES (?, ?, ?)"
+    [toSql username, toSql (unPasswordHash hashedPassword), toSql name]
+  liftIO $ commit conn
+  users <- liftIO $
+    quickQuery' conn "SELECT id, name FROM users WHERE username = ?" [toSql username]
+  case users of
+    [map fromSql -> [id, name]] -> do
+      sessionID <- liftIO nextRandom
+      liftIO $ modifyIORef' sessions $ M.insert sessionID id
+      send $ withCookie "SESSION" (toText sessionID) $ json $ LoginResponse name (pack $ show id)
+    _ -> error "impossible"
+  
 missing :: ResponderM a
 missing = send $ html "Not found..."
