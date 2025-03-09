@@ -1,4 +1,4 @@
-module Pages.CreateMeeting exposing (..)
+module Pages.Availability exposing (..)
 
 import Html exposing (Html, div, text, h2, input, button, form)
 import Html.Attributes as A exposing (type_, value)

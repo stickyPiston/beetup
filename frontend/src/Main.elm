@@ -12,7 +12,7 @@ import Http
 
 import Pages.Login as LoginPage
 import Pages.Home as HomePage
-import Pages.CreateMeeting as CreateMeetingPage
+import Pages.Availability as CreateMeetingPage
 
 main : Program () Model Msg
 main = Browser.application
