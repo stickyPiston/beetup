@@ -6,10 +6,9 @@ import Html.Events exposing (onClick, onSubmit, onInput)
 
 import Dict exposing (Dict)
 
-import Array
-import Time exposing (millisToPosix)
-import Clock exposing (Time, getHours, getMinutes, midnight)
-import Calendar exposing (Date, getDay, getMonth, getYear, monthToInt, months)
+import Clock exposing (midnight)
+import Calendar
+import Utils.DateTime exposing (Time, Date, parseDate, parseTime, formatDate, formatTime, millisToDate)
 
 import Maybe.Extra as Maybe
 import List.Extra as List
@@ -77,21 +76,6 @@ update msg model =
             let newDays = Dict.update day (Maybe.map (List.removeAt idx)) model.days
              in ({ model | days = newDays }, Cmd.none)
 
-parseDate : String -> Maybe Date
-parseDate input = case String.split "-" input |> Maybe.traverse String.toInt of
-    -- The date field returns the date in yyyy-mm-dd format
-    Just [year, month, day] -> 
-        Array.get (month - 1) months
-        |> Maybe.andThen (\ parsedMonth -> Calendar.fromRawParts { year = year, month = parsedMonth, day = day })
-    _ -> Nothing
-
-parseTime : String -> Maybe Time
-parseTime input = case String.split ":" input |> Maybe.traverse String.toInt of
-    -- The time field either returns a time in HH:mm or HH:mm:ss format
-    Just [hours, minutes] -> Clock.fromRawParts { hours = hours, minutes = minutes, seconds = 0, milliseconds = 0 }
-    Just [hours, minutes, seconds] -> Clock.fromRawParts { hours = hours, minutes = minutes, seconds = seconds, milliseconds = 0 }
-    _ -> Nothing
-
 -- VIEW
 
 view : Model -> List (Html Msg)
@@ -107,7 +91,7 @@ addDayForm = form [onSubmit AddDay]
 
 viewDay : Time -> Time -> Int -> List AvailabilityDraft -> Html Msg
 viewDay startTime endTime day availabilities =
-    let formattedDate = day |> millisToPosix |> Calendar.fromPosix |> formatDate
+    let formattedDate = day |> millisToDate |> formatDate
      in div []
         [ h2 [] [text formattedDate]
         , div [] <| List.indexedMap (viewAvailabilities startTime endTime day) availabilities
@@ -135,18 +119,3 @@ viewAvailabilities startTime endTime day idx availability =
             ] []
         , button [onClick (DeleteAvailability day idx)] [text "Delete"]
         ]
-
-formatTime : Time -> String
-formatTime time =
-    let formatNumber s = if String.length s == 1 then "0" ++ s else s
-     in [getHours time, getMinutes time]
-        |> List.map (String.fromInt >> formatNumber)
-        |> List.intersperse ":"
-        |> String.concat
-
-formatDate : Date -> String
-formatDate date =
-    [getDay date, getMonth date |> monthToInt, getYear date]
-    |> List.map String.fromInt
-    |> List.intersperse "-"
-    |> String.concat

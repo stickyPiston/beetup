@@ -4,10 +4,9 @@ import Html exposing (Html, form, label, text, input, ul, button, li)
 import Html.Attributes exposing (value, type_)
 import Html.Events exposing (onInput, onClick)
 
-import Calendar exposing (Date)
-import Clock exposing (Time, midnight)
+import Clock exposing (midnight)
 
-import Pages.Availability exposing (formatDate, formatTime)
+import Utils.DateTime exposing (Time, Date, formatDate, formatTime)
 
 -- MODEL
 
