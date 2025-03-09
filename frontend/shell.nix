@@ -5,6 +5,7 @@ let
     elm-test
     elm-review
     elm-format
+    elm-live
   ];
   shellDeps = with pkgs; [
     git

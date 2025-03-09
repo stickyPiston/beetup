@@ -37,14 +37,16 @@ update msg model = case msg of
 
 -- VIEW
 
-view : Model -> Html Msg
-view model = form []
-    [ label [] [text "Dates:"]
-    , viewDates model.dateFields
-    , label [] [text "Start time: "]
-    , input [type_ "time", value <| formatTime model.startTime] []
-    , label [] [text "End time: "]
-    , input [type_ "time", value <| formatTime model.endTime] []
+view : Model -> List (Html Msg)
+view model = 
+    [ form []
+        [ label [] [text "Dates:"]
+        , viewDates model.dateFields
+        , label [] [text "Start time: "]
+        , input [type_ "time", value <| formatTime model.startTime] []
+        , label [] [text "End time: "]
+        , input [type_ "time", value <| formatTime model.endTime] []
+        ]
     ]
 
 viewDates : List Date -> Html Msg

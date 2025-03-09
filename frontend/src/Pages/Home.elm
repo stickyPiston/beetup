@@ -1,7 +1,8 @@
 module Pages.Home exposing (..)
 
-import Html exposing (Html, text, button)
+import Html exposing (Html, text, button, a)
 import Html.Events exposing (onClick)
+import Html.Attributes exposing (href)
 
 import Http
 
@@ -35,8 +36,13 @@ update msg model = case msg of
 
 -- VIEW
 
-view : LoginPage.User -> List (Html Msg)
-view user =
-    [ text ("Welcome " ++ user.name ++ "!")
-    , button [onClick Logout] [text "Log out"]
-    ]
+view : Model -> List (Html Msg)
+view { user } = case user of
+    Just { name } ->
+        [ text ("Welcome " ++ name ++ "!")
+        , button [onClick Logout] [text "Log out"]
+        ]
+    Nothing ->
+        [ text "Please login first!"
+        , a [href "/login"] [text "To the login page"]
+        ]
