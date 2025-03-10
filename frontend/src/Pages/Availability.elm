@@ -9,6 +9,7 @@ import Dict exposing (Dict)
 import Clock exposing (midnight)
 import Calendar
 import Utils.DateTime exposing (Time, Date, parseDate, parseTime, formatDate, formatTime, millisToDate)
+import Models exposing (AvailabilityTimeType(..))
 
 import Maybe.Extra as Maybe
 import List.Extra as List
@@ -32,10 +33,6 @@ init : Model
 init = { days = Dict.empty , startTime = midnight , endTime = midnight, dateField = Nothing }
 
 -- UPDATE
-
-type AvailabilityTimeType
-    = StartTime
-    | EndTime
 
 type Msg
     = AddAvailability Int

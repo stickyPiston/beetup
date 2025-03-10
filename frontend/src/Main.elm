@@ -38,18 +38,22 @@ type alias Model =
 
 init : () -> Url -> Key -> (Model, Cmd Msg)
 init () url key =
-    let model =
+    let (meetingModel, meetingCmd) = Meeting.init
+        model =
             { navKey = key
             , currentRoute = routeFromUrl url
             , loginModel = Login.init
             , availabilityModel = Availability.init
-            , meetingModel = Meeting.init
+            , meetingModel = meetingModel
             }
      in ( model
-        , Http.get
-            { url = "http://localhost:8001/user"
-            , expect = Http.expectJson (LoginMsg << Login.GotUser) Login.userDecoder
-            }
+        , Cmd.batch
+            [ Http.get
+                { url = "http://localhost:8001/user"
+                , expect = Http.expectJson (LoginMsg << Login.GotUser) Login.userDecoder
+                }
+            , Cmd.map MeetingMsg meetingCmd
+            ]
         )
 
 -- UPDATE

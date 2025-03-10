@@ -1,0 +1,37 @@
+.calendar {
+    display: grid;
+    grid-template-columns: 10% 80% 10%;
+}
+
+.weeks > div {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+}
+
+.active {
+    background: lightseagreen;
+    clip-path: circle(1rem);
+}
+
+.week > span {
+    height: 3rem;
+    line-height: 3rem;
+}
+
+.week > span ruby {
+    transform: translateY(-5px)
+}
+
+.week > span ruby rt {
+    transform: translateY(-5px);
+}
+
+.arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+    text-align: center;
+}
