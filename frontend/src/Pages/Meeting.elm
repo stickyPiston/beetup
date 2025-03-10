@@ -1,6 +1,6 @@
 module Pages.Meeting exposing (..)
 
-import Html exposing (Html, form, label, text, input, div, span, ruby, rp, rt)
+import Html exposing (Html, form, label, text, input, div, span, ruby, rp, rt, textarea)
 import Html.Attributes exposing (value, type_, class)
 import Html.Events exposing (onInput, onClick)
 
@@ -21,6 +21,8 @@ type alias Model =
     , startTime : Time
     , endTime : Time
     , currentDay : Maybe Date
+    , title : String
+    , description : String
     }
 
 init : (Model, Cmd Msg)
@@ -30,9 +32,21 @@ init =
         getCurrentDay = Time.now
             |> Task.map Calendar.fromPosix
             |> Task.perform GotDate
-     in ({ selectedDates = [], startTime = startTime, endTime = endTime, currentDay = Nothing }, getCurrentDay)
+     in ( { selectedDates = []
+          , startTime = startTime
+          , endTime = endTime
+          , currentDay = Nothing
+          , title = ""
+          , description = ""
+          }
+        , getCurrentDay
+        )
 
 -- UDPATE
+
+type TextInputType
+    = Title
+    | Description
 
 type Msg
     = CreatingDraftAvailability
@@ -41,6 +55,7 @@ type Msg
     | PrevMonth
     | DateClicked Date
     | TimeUpdated AvailabilityTimeType String
+    | TextInputUpdated TextInputType String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -62,6 +77,9 @@ update msg model =
                     EndTime   -> { model | endTime = with }
                 unchanged = (model, Cmd.none)
              in parseTime value |> Maybe.unwrap unchanged (\ t -> (updateModel t, Cmd.none))
+        TextInputUpdated textType value -> case textType of
+            Title -> ({ model | title = value }, Cmd.none)
+            Description -> ({ model | description = value }, Cmd.none)
 
 -- VIEW
 
@@ -72,6 +90,10 @@ view model =
         , input [type_ "time", value <| formatTime model.startTime, onInput (TimeUpdated StartTime)] []
         , label [] [text "End time: "]
         , input [type_ "time", value <| formatTime model.endTime, onInput (TimeUpdated EndTime)] []
+        , label [] [text "Title: "]
+        , input [type_ "text", value model.title] []
+        , label [] [text "Description: "]
+        , textarea [value model.description] []
         , div [class "calendar"]
             [ span [class "arrow", onClick PrevMonth] [text "<"]
             , div [class "weeks"] (viewCalendar model)

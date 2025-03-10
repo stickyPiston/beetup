@@ -8,12 +8,13 @@ type alias Availability =
     { date : Date
     , startTime : Time
     , endTime : Time
+    , title : String
+    , description : String
     }
 
 type AvailabilityTimeType
     = StartTime
     | EndTime
-
 
 type alias Meeting =
     { availabilities : Dict String (List Availability)
