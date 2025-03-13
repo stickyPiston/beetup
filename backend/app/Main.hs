@@ -11,7 +11,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Password.Bcrypt
 import Data.IORef (IORef, newIORef, modifyIORef', readIORef)
 import qualified Data.Map as M
-import Data.UUID (UUID, fromText, toText)
+import Data.UUID (UUID, fromText, toText, toASCIIBytes)
 import Data.UUID.V4 (nextRandom)
 
 type Sessions = IORef (M.Map UUID Text)
@@ -74,7 +74,7 @@ login sessions conn = do
       | checkPassword password pwHash == PasswordCheckSuccess -> do
         sessionID <- liftIO nextRandom
         liftIO $ modifyIORef' sessions $ M.insert sessionID id
-        respond $ withCookie "SESSION" (toText sessionID) $ json $ LoginResponse name (pack $ show id)
+        respond $ withHeader ("token", toASCIIBytes sessionID) $ withCookie "SESSION" (toText sessionID) $ json $ LoginResponse name (pack $ show id)
     _ -> respond $ status unauthorized401 $ html ""
   where respond = send . withHeader ("Access-Control-Allow-Origin", "*")
 
@@ -120,19 +120,22 @@ register sessions conn = do
   RegisterParams username (mkPassword -> password) name <- fromBody
   -- TODO: Validation
   hashedPassword <- liftIO $ hashPassword password
+
+  liftIO $ commit conn
   _ <- liftIO $ run
     conn
     "INSERT INTO users (username, password, name) VALUES (?, ?, ?)"
-    [toSql username, toSql (unPasswordHash hashedPassword), toSql name]
-  liftIO $ commit conn
+    [toSql username, toSql (unPasswordHash hashedPassword), toSql username]
+  
   users <- liftIO $
-    quickQuery' conn "SELECT id, name FROM users WHERE username = ?" [toSql username]
+    quickQuery' conn "SELECT id, name FROM users WHERE username = ?" [toSql name]
+
   case users of
     [map fromSql -> [id, name]] -> do
       sessionID <- liftIO nextRandom
       liftIO $ modifyIORef' sessions $ M.insert sessionID id
-      send $ withCookie "SESSION" (toText sessionID) $ json $ LoginResponse name (pack $ show id)
-    _ -> error "impossible"
-  
+      send $ withHeader ("token", toASCIIBytes sessionID) $ withCookie "SESSION" (toText sessionID) $ json $ LoginResponse name (pack $ show id)
+    _ -> send $ status status400 $ text "User already exists"
+
 missing :: ResponderM a
 missing = send $ html "Not found..."
