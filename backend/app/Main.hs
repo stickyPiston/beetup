@@ -121,14 +121,15 @@ register sessions conn = do
   -- TODO: Validation
   hashedPassword <- liftIO $ hashPassword password
 
-  liftIO $ commit conn
   _ <- liftIO $ run
     conn
     "INSERT INTO users (username, password, name) VALUES (?, ?, ?)"
-    [toSql username, toSql (unPasswordHash hashedPassword), toSql username]
+    [toSql username, toSql (unPasswordHash hashedPassword), toSql name]
   
+  liftIO $ commit conn
+
   users <- liftIO $
-    quickQuery' conn "SELECT id, name FROM users WHERE username = ?" [toSql name]
+    quickQuery' conn "SELECT id, name FROM users WHERE username = ?" [toSql username]
 
   case users of
     [map fromSql -> [id, name]] -> do
