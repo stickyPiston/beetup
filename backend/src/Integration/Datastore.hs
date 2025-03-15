@@ -20,16 +20,17 @@ module Integration.Datastore where
 import Database.Persist.TH (share, mkPersist, sqlSettings, mkMigrate, persistLowerCase)
 import Database.Persist.Sqlite (runSqlite, runMigration, PersistStoreWrite (insert))
 import Data.Time (Day, TimeOfDay)
+import Data.Text (Text)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 User
-  name String
-  username String
-  password String
+  name Text
+  username Text
+  password Text
   deriving (Show)
 
 Occupancy
-  title String
+  title Text
   date Day
   startTime TimeOfDay
   endTime TimeOfDay
