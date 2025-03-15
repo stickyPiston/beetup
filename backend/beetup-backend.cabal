@@ -15,7 +15,9 @@ executable beetup-backend
     main-is:            Main.hs
     other-modules:      Integration.Datastore
                       , Utils.Datatypes
+                      , Utils.Functions
                       , Presentation.Authentication
+                      , Presentation.User
     default-extensions: OverloadedStrings
                       , ViewPatterns
                       , DuplicateRecordFields
