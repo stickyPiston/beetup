@@ -54,6 +54,5 @@ findUserByUsername uname = runSqlite "main.db" $ selectFirst [UserUsername ==. u
 findUserById :: Int -> IO (Maybe (Entity User))
 findUserById id = runSqlite "main.db" $ selectFirst [UserId ==. toSqlKey (fromIntegral id)] []
 
-
 insertUser :: User -> IO UserId
 insertUser u = runSqlite "main.db" $ insert u

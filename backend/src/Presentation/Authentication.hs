@@ -16,7 +16,6 @@ import Database.Persist (Entity(entityVal, entityKey))
 import Database.Persist.Sql (fromSqlKey)
 import Integration.Datastore (findUserByUsername, insertUser, User (User, userPassword, userName))
 
-
 data LoginParams = LoginParams
   { username :: Text
   , password :: Text
@@ -46,7 +45,6 @@ instance FromJSON RegisterParams where
     <$> o .: "username"
     <*> o .: "password"
     <*> o .: "name"
-
 
 requireSession :: Sessions -> ResponderM Int
 requireSession sessions = do
@@ -78,7 +76,6 @@ register = do
     $ withCookie "SESSION" (toText sessionID) 
     $ withHeader ("token", toASCIIBytes sessionID) 
     $ json userId
-
 
 logout :: Sessions -> ResponderM a
 logout sessions = do
