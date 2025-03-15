@@ -5,7 +5,6 @@ import Data.Aeson
 import Data.Text (Text, pack)
 import Utils.Datatypes
 import Data.Map as M
-import Integration.Datastore (findUserByUsername, insertUser, User (User, userPassword, userUsername, userName))
 import Data.Password.Bcrypt
 import Control.Monad.Cont (MonadIO(liftIO))
 import Data.UUID (toASCIIBytes, toText, fromText)
@@ -15,6 +14,7 @@ import Utils.Functions
 import Data.Maybe (fromJust)
 import Database.Persist (Entity(entityVal, entityKey))
 import Database.Persist.Sql (fromSqlKey)
+import Integration.Datastore (findUserByUsername, insertUser, User (User, userPassword, userName))
 
 
 data LoginParams = LoginParams
