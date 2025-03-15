@@ -14,7 +14,9 @@ import qualified Data.Map as M
 import Data.UUID (UUID, fromText, toText, toASCIIBytes)
 import Data.UUID.V4 (nextRandom)
 
-type Sessions = IORef (M.Map UUID Text)
+import Presentation.Login
+import Integration.Database
+import Utils.Datatypes
 
 main :: IO ()
 main = do
@@ -30,53 +32,6 @@ main = do
       , get "/user" (user sessions conn)
       , get "/logout" (logout sessions)
       ]
-
-initDB :: Connection -> IO ()
-initDB conn = do
-  runRaw conn "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, name TEXT)"
-  [[fromSql -> userCount]] <- quickQuery' conn "SELECT COUNT(*) FROM users WHERE username = \"robin\"" []
-  when (userCount == (0 :: Int)) $ do
-    hash <- hashPassword "hello"
-    _ <- run
-      conn
-      "INSERT INTO users (username, password, name) VALUES (\"robin\", ?, \"Robin-Lynn\")"
-      [toSql $ unPasswordHash hash]
-    return ()
-  commit conn
-
-data LoginParams = LoginParams
-  { username :: Text
-  , password :: Text
-  }
-
-instance FromJSON LoginParams where
-  parseJSON = withObject "LoginParams" $ \ o -> LoginParams
-    <$> o .: "username"
-    <*> o .: "password"
-
-data LoginResponse = LoginResponse
-  { name :: Text
-  , id :: Text
-  }
-
-instance ToJSON LoginResponse where
-  toJSON (LoginResponse name id) = object ["name" .= name, "id" .= id]
-
-login :: Sessions -> Connection -> ResponderM a
-login sessions conn = do
-  LoginParams username (mkPassword -> password) <- fromBody
-  foundUsers <- liftIO $ quickQuery'
-    conn
-    "SELECT id, name, password FROM users WHERE username = ?"
-    [toSql username]
-  case foundUsers of
-    [map fromSql -> [id, name, PasswordHash -> pwHash]]
-      | checkPassword password pwHash == PasswordCheckSuccess -> do
-        sessionID <- liftIO nextRandom
-        liftIO $ modifyIORef' sessions $ M.insert sessionID id
-        respond $ withHeader ("token", toASCIIBytes sessionID) $ withCookie "SESSION" (toText sessionID) $ json $ LoginResponse name (pack $ show id)
-    _ -> respond $ status unauthorized401 $ html ""
-  where respond = send . withHeader ("Access-Control-Allow-Origin", "*")
 
 requireSession :: Sessions -> ResponderM Text
 requireSession sessions = do
