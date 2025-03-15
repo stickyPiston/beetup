@@ -13,6 +13,10 @@ common warnings
 executable beetup-backend
     import:             warnings
     main-is:            Main.hs
+    other-modules:      Integration.Datastore
+                      , Domain.User
+                      , Utils.Datatypes
+                      , Presentation.Login
     default-extensions: OverloadedStrings
                       , ViewPatterns
                       , DuplicateRecordFields
@@ -23,8 +27,11 @@ executable beetup-backend
                       , containers
                       , aeson
                       , http-types
-                      , HDBC
-                      , HDBC-sqlite3
+                      , persistent
+                      , persistent-sqlite
+                      , persistent-template
+                      , time
+                      , mtl
                       , password
                       , uuid
     hs-source-dirs:     src
