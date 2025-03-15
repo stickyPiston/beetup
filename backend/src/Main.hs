@@ -11,6 +11,7 @@ import Data.UUID (fromText)
 
 import Utils.Datatypes
 import Integration.Datastore (initDB)
+import Presentation.Authentication (register)
 
 main :: IO ()
 main = do
@@ -23,9 +24,9 @@ main = do
       (notFound missing)
       [ 
       --   post "/login" (login sessions conn)
-      -- , post "/register" (register sessions conn)
+      post "/register" (register sessions)
       -- , get "/user" (user sessions conn)
-         get "/logout" (logout sessions)
+         , get "/logout" (logout sessions)
       ]
 
 requireSession :: Sessions -> ResponderM Text
@@ -52,18 +53,6 @@ logout sessions = do
       liftIO $ modifyIORef' sessions (M.delete sessionID)
     _ -> return ()
   send $ raw status200 [] ""
-
-data RegisterParams = RegisterParams
-  { username :: Text
-  , password :: Text
-  , name :: Text
-  }
-
-instance FromJSON RegisterParams where
-  parseJSON = withObject "RegisterParams" $ \ o -> RegisterParams
-    <$> o .: "username"
-    <*> o .: "password"
-    <*> o .: "name"
 
 -- register :: Sessions -> Connection -> ResponderM a
 -- register sessions conn = do

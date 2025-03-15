@@ -18,9 +18,10 @@
 module Integration.Datastore where
 
 import Database.Persist.TH (share, mkPersist, sqlSettings, mkMigrate, persistLowerCase)
-import Database.Persist.Sqlite (runSqlite, runMigration, PersistStoreWrite (insert))
+import Database.Persist.Sqlite (runSqlite, runMigration, PersistStoreWrite (insert), SqlBackend, Entity (Entity, entityVal), PersistQueryRead (selectFirst), (==.))
 import Data.Time (Day, TimeOfDay)
 import Data.Text (Text)
+import Control.Monad.Reader (ReaderT)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 User
@@ -42,9 +43,21 @@ initDB :: IO ()
 initDB = runSqlite "main.db" $ do
   runMigration migrateAll
 
+  -- Test Data
   jortId <- insert $ User "Jort" "jortw" "helloworld"
 
   return ()
+
+findUserByUsername :: Text -> IO (Maybe User)
+findUserByUsername uname = runSqlite "main.db" $ do
+  maybeEntity <- selectFirst [UserUsername ==. uname] []
+
+  return $ fmap entityVal maybeEntity
+
+insertUser :: User -> IO UserId
+insertUser u = runSqlite "main.db" $ insert u
+
+
 
 -- selectUser :: Connection  -- database connection
 --            -> String      -- username

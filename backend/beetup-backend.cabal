@@ -14,9 +14,8 @@ executable beetup-backend
     import:             warnings
     main-is:            Main.hs
     other-modules:      Integration.Datastore
-                      , Domain.User
                       , Utils.Datatypes
-                      , Presentation.Login
+                      , Presentation.Authentication
     default-extensions: OverloadedStrings
                       , ViewPatterns
                       , DuplicateRecordFields
