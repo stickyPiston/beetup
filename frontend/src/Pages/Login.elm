@@ -4,9 +4,11 @@ import Html exposing (Html, form, input, label, text, br)
 import Html.Events exposing (onSubmit, onInput)
 import Html.Attributes exposing (name, type_, value)
 
+import Browser.Navigation as Nav
 import Http
 
 import Json.Encode as Encode
+import Json.Decode exposing (int)
 import Models exposing (User, userDecoder)
 
 -- MODEL
@@ -50,9 +52,10 @@ type Msg
     | RegisterFormSubmit
     | RegisterFormMsg (RegisterForm -> RegisterForm)
     | GotUser (Result Http.Error User)
+    | GotUserId (Result Http.Error Int)
 
-update : Msg -> Model -> (Model, Cmd Msg)
-update msg model = case msg of
+update : Nav.Key -> Msg -> Model -> (Model, Cmd Msg)
+update key msg model = case msg of
     LoginFormSubmit ->
         ( model
         , Http.post
@@ -67,16 +70,24 @@ update msg model = case msg of
         , Http.post
             { body = Http.jsonBody (registerEncoder model.registerForm)
             , url = "http://localhost:8001/register"
-            , expect = Http.expectJson GotUser userDecoder
+            , expect = Http.expectJson GotUserId int
             }
         )
     RegisterFormMsg updateFn -> ({ model | registerForm = updateFn model.registerForm }, Cmd.none)
-    GotUser response ->
-        ( response
-            |> (Result.map <| \ user -> { model | user = Just user })
-            |> Result.withDefault model
-        , Cmd.none
-        )
+    GotUserId response -> case response of
+        Ok _  ->
+            let request = Http.get
+                    { url = "http://localhost:8001/user"
+                    , expect = Http.expectJson GotUser userDecoder
+                    }
+             in (model, request)
+        Err _ -> (model, Cmd.none)
+    GotUser response -> case response of
+        Ok user ->
+            ( { model | user = Just user }
+            , Nav.pushUrl key "/"
+            )
+        Err _ -> (model, Cmd.none)
 
 -- DECODERS / ENCODERS
 

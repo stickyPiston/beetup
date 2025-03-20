@@ -77,7 +77,7 @@ update msg model = case msg of
         Internal url -> (model, Nav.pushUrl model.navKey (Url.toString url))
         External url -> (model, Nav.load url)
     LoginMsg lmsg ->
-        let (newModel, cmd) = Login.update lmsg model.loginModel
+        let (newModel, cmd) = Login.update model.navKey lmsg model.loginModel
             -- TODO: Move user logic out of the login page
             homeModel = model.homeModel
             updateHome login = { homeModel | login = login } 

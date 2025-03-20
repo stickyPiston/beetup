@@ -13,6 +13,7 @@
             fetch("http://localhost:8001/user")
                 .then(resp => resp.json())
                 .then(resp => Elm.Main.init({ flags: resp }))
+                .catch(() => Elm.Main.init());
         </script>
     </body>
 </html>
