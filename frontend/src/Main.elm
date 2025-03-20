@@ -9,8 +9,6 @@ import Html exposing (text)
 import Url exposing (Url)
 import Url.Parser exposing (Parser, s, top, int, (</>), map, oneOf, parse)
 
-import Http
-
 import Pages.Login as Login
 import Pages.Home as Home
 import Pages.Availability as Availability
@@ -57,11 +55,7 @@ init flag url key =
             }
      in ( model
         , Cmd.batch
-            [ Http.get
-                { url = "http://localhost:8001/user"
-                , expect = Http.expectJson (LoginMsg << Login.GotUser) userDecoder
-                }
-            , Cmd.map MeetingMsg meetingCmd
+            [ Cmd.map MeetingMsg meetingCmd
             , Cmd.map HomeMsg homeCmd
             ]
         )
