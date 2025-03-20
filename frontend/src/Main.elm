@@ -34,11 +34,13 @@ type alias Model =
     , loginModel : Login.Model
     , meetingModel : Meeting.Model
     , availabilityModel : Availability.Model
+    , homeModel : Home.Model
     }
 
 init : () -> Url -> Key -> (Model, Cmd Msg)
 init () url key =
     let (meetingModel, meetingCmd) = Meeting.init
+        (homeModel, homeCmd) = Home.init Login.init
         model =
             { navKey = key
             , currentRoute = routeFromUrl url
@@ -46,6 +48,7 @@ init () url key =
             -- TODO: Load user session via port so that this can be Just user
             , availabilityModel = Availability.init Nothing
             , meetingModel = meetingModel
+            , homeModel = homeModel
             }
      in ( model
         , Cmd.batch
@@ -54,6 +57,7 @@ init () url key =
                 , expect = Http.expectJson (LoginMsg << Login.GotUser) Login.userDecoder
                 }
             , Cmd.map MeetingMsg meetingCmd
+            , Cmd.map HomeMsg homeCmd
             ]
         )
 
@@ -75,10 +79,13 @@ update msg model = case msg of
         External url -> (model, Nav.load url)
     LoginMsg lmsg ->
         let (newModel, cmd) = Login.update lmsg model.loginModel
-         in ({ model | loginModel = newModel }, Cmd.map LoginMsg cmd)
+            -- TODO: Move user logic out of the login page
+            homeModel = model.homeModel
+            updateHome login = { homeModel | login = login } 
+         in ({ model | loginModel = newModel, homeModel = updateHome newModel }, Cmd.map LoginMsg cmd)
     HomeMsg hmsg ->
-        let (newModel, cmd) = Home.update hmsg model.loginModel
-         in ({ model | loginModel = newModel }, Cmd.map HomeMsg cmd)
+        let (newModel, cmd) = Home.update hmsg model.homeModel
+         in ({ model | homeModel = newModel }, Cmd.map HomeMsg cmd)
     AvailabilityMsg cmsg ->
         let (newModel, cmd) = Availability.update cmsg model.availabilityModel
          in ({ model | availabilityModel = newModel }, Cmd.map AvailabilityMsg cmd)
@@ -90,7 +97,7 @@ view : Model -> Document Msg
 view model =
     { title = "Elm"
     , body = case model.currentRoute of
-        Home -> Home.view model.loginModel |> List.map (Html.map HomeMsg)
+        Home -> Home.view model.homeModel |> List.map (Html.map HomeMsg)
         Meeting -> Meeting.view model.meetingModel |> List.map (Html.map MeetingMsg)
         Availability id -> Availability.view model.availabilityModel |> List.map (Html.map AvailabilityMsg)
         Login -> Login.view model.loginModel |> List.map (Html.map LoginMsg)

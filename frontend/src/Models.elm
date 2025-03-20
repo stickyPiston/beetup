@@ -4,12 +4,17 @@ import Dict exposing (Dict)
 import Calendar exposing (Date)
 import Clock exposing (Time)
 
+import Json.Decode as Decode exposing (Decoder, string, list, dict)
+import Json.Decode.Pipeline exposing (required)
+
+import Utils.DateTime exposing (dateDecoder, timeDecoder)
+
+-- DATA TYPES
+
 type alias Availability =
     { date : Date
     , startTime : Time
     , endTime : Time
-    , title : String
-    , description : String
     }
 
 type AvailabilityTimeType
@@ -17,8 +22,34 @@ type AvailabilityTimeType
     | EndTime
 
 type alias Meeting =
-    { availabilities : Dict String (List Availability)
+    { id : String
+    , availabilities : Dict String (List Availability)
     , startTime : Time
     , endTime : Time
     , days : List Date
+    , title : String
+    , description : String
     }
+
+type alias User =
+    { name : String
+    , email : String
+    }
+
+-- DECODERS
+
+meetingDecoder : Decoder Meeting
+meetingDecoder = Decode.succeed Meeting
+    |> required "id" string
+    |> required "availabilities" (dict (list availabilityDecoder))
+    |> required "startTime" timeDecoder
+    |> required "endTime" timeDecoder
+    |> required "days" (list dateDecoder)
+    |> required "title" string
+    |> required "description" string
+
+availabilityDecoder : Decoder Availability
+availabilityDecoder = Decode.succeed Availability
+    |> required "date" dateDecoder
+    |> required "startTime" timeDecoder
+    |> required "endTime" timeDecoder

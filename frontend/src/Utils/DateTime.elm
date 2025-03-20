@@ -1,6 +1,7 @@
 module Utils.DateTime exposing
     ( Date, Time
     , parseDate, parseTime
+    , dateDecoder, timeDecoder
     , formatDate, formatTime
     , getWeekStart
     , incrementDays, decrementDays
@@ -15,6 +16,8 @@ import Time exposing (millisToPosix, Weekday(..))
 import Maybe.Extra as Maybe
 import Array
 import List.Extra
+
+import Json.Decode as Decode exposing (Decoder, int)
 
 -- RE-EXPORTED TYPE ALIASES
 
@@ -37,6 +40,12 @@ parseTime input = case String.split ":" input |> Maybe.traverse String.toInt of
     Just [hours, minutes] -> Clock.fromRawParts { hours = hours, minutes = minutes, seconds = 0, milliseconds = 0 }
     Just [hours, minutes, seconds] -> Clock.fromRawParts { hours = hours, minutes = minutes, seconds = seconds, milliseconds = 0 }
     _ -> Nothing
+
+dateDecoder : Decoder Date
+dateDecoder = int |> Decode.map millisToDate
+
+timeDecoder : Decoder Time
+timeDecoder = int |> Decode.map (millisToPosix >> Clock.fromPosix)
 
 -- FORMATTING
 
