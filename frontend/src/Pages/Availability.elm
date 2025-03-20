@@ -1,6 +1,6 @@
 module Pages.Availability exposing (..)
 
-import Html exposing (Html, div, text, h2, input, button, form)
+import Html exposing (Html, div, text, h2, input, button, form, label)
 import Html.Attributes as A exposing (type_, value)
 import Html.Events exposing (onClick, onSubmit, onInput)
 
@@ -9,7 +9,7 @@ import Dict exposing (Dict)
 import Clock exposing (midnight)
 import Calendar
 import Utils.DateTime exposing (Time, Date, parseDate, parseTime, formatDate, formatTime, millisToDate)
-import Models exposing (AvailabilityTimeType(..))
+import Models exposing (AvailabilityTimeType(..), User)
 
 import Maybe.Extra as Maybe
 import List.Extra as List
@@ -27,12 +27,25 @@ type alias Model =
     , startTime : Time
     , endTime : Time
     , dateField : Maybe Date
+    , attendeeName : String
+    , attendeeEmail : String
     }
 
-init : Model
-init = { days = Dict.empty , startTime = midnight , endTime = midnight, dateField = Nothing }
+init : Maybe User -> Model
+init user =
+    { days = Dict.empty
+    , startTime = midnight
+    , endTime = midnight
+    , dateField = Nothing
+    , attendeeName = Maybe.unwrap "" (\ u -> u.name) user 
+    , attendeeEmail = Maybe.unwrap "" (\ u -> u.email) user 
+    }
 
 -- UPDATE
+
+type AttendeeInfoType
+    = Name
+    | Email
 
 type Msg
     = AddAvailability Int
@@ -42,6 +55,7 @@ type Msg
     -- to the time represented by value if it parses to a valid time.
     | AvailabilityTimeChanged AvailabilityTimeType Int Int String
     | DeleteAvailability Int Int
+    | AttendeeInfoChanged AttendeeInfoType String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -72,13 +86,26 @@ update msg model =
         DeleteAvailability day idx ->
             let newDays = Dict.update day (Maybe.map (List.removeAt idx)) model.days
              in ({ model | days = newDays }, Cmd.none)
+        AttendeeInfoChanged attendeeInfoType value ->
+            case attendeeInfoType of
+                Name -> ({ model | attendeeName = value }, Cmd.none)
+                Email -> ({ model | attendeeEmail = value }, Cmd.none)
 
 -- VIEW
 
 view : Model -> List (Html Msg)
 view model =
-    let viewedDays = model.days |> Dict.map (viewDay model.startTime model.endTime) |> Dict.values
-     in addDayForm :: viewedDays ++ [text <| Debug.toString model.days]
+    let viewedDays   = model.days |> Dict.map (viewDay model.startTime model.endTime) |> Dict.values
+        attendeeInfo = viewAttendeeInfo model.attendeeName model.attendeeEmail
+     in attendeeInfo :: addDayForm :: viewedDays ++ [text <| Debug.toString model.days]
+
+viewAttendeeInfo : String -> String -> Html Msg
+viewAttendeeInfo name email = div []
+    [ label [] [text "Name: "]
+    , input [type_ "text", value name, onInput (AttendeeInfoChanged Name)] []
+    , label [] [text "Email: "]
+    , input [type_ "email", value email, onInput (AttendeeInfoChanged Email)] []
+    ]
 
 addDayForm : Html Msg
 addDayForm = form [onSubmit AddDay]

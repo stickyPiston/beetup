@@ -43,7 +43,8 @@ init () url key =
             { navKey = key
             , currentRoute = routeFromUrl url
             , loginModel = Login.init
-            , availabilityModel = Availability.init
+            -- TODO: Load user session via port so that this can be Just user
+            , availabilityModel = Availability.init Nothing
             , meetingModel = meetingModel
             }
      in ( model
