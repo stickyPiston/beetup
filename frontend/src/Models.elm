@@ -33,7 +33,7 @@ type alias Meeting =
 
 type alias User =
     { name : String
-    , email : String
+    , id : String
     }
 
 -- DECODERS
@@ -53,3 +53,8 @@ availabilityDecoder = Decode.succeed Availability
     |> required "date" dateDecoder
     |> required "startTime" timeDecoder
     |> required "endTime" timeDecoder
+
+userDecoder : Decoder User
+userDecoder = Decode.succeed User
+    |> required "name" string
+    |> required "id" string

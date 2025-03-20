@@ -10,7 +10,9 @@
     </head>
     <body>
         <script>
-            var main = Elm.Main.init();
+            fetch("http://localhost:8001/user")
+                .then(resp => resp.json())
+                .then(resp => Elm.Main.init({ flags: resp }))
         </script>
     </body>
 </html>

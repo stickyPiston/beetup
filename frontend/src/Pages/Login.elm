@@ -7,8 +7,7 @@ import Html.Attributes exposing (name, type_, value)
 import Http
 
 import Json.Encode as Encode
-import Json.Decode as Decode exposing (Decoder, string)
-import Json.Decode.Pipeline exposing (required)
+import Models exposing (User, userDecoder)
 
 -- MODEL
 
@@ -29,13 +28,8 @@ type alias RegisterForm =
     , name : String
     }
 
-type alias User =
-    { name : String
-    , id : String
-    }
-
-init : Model
-init =
+init : Maybe User -> Model
+init user =
     { loginForm =
         { username = ""
         , password = ""
@@ -45,7 +39,7 @@ init =
         , password = ""
         , name = ""
         }
-    , user = Nothing
+    , user = user
     }
 
 -- UPDATE
@@ -98,12 +92,6 @@ registerEncoder register = Encode.object
     , ("password", Encode.string register.password)
     , ("name", Encode.string register.name)
     ]
-
-userDecoder : Decoder User
-userDecoder = Decode.succeed User
-    |> required "name" string
-    |> required "id" string
-
 
 -- VIEWS
 

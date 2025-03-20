@@ -16,7 +16,10 @@ import Pages.Home as Home
 import Pages.Availability as Availability
 import Pages.Meeting as Meeting
 
-main : Program () Model Msg
+import Models exposing (userDecoder)
+import Json.Decode as Decode
+
+main : Program Decode.Value Model Msg
 main = Browser.application
     { init = init
     , update = update
@@ -37,16 +40,18 @@ type alias Model =
     , homeModel : Home.Model
     }
 
-init : () -> Url -> Key -> (Model, Cmd Msg)
-init () url key =
-    let (meetingModel, meetingCmd) = Meeting.init
-        (homeModel, homeCmd) = Home.init Login.init
+init : Decode.Value -> Url -> Key -> (Model, Cmd Msg)
+init flag url key =
+    let user = Decode.decodeValue userDecoder flag
+            |> Result.toMaybe
+        loginModel = Login.init user
+        (meetingModel, meetingCmd) = Meeting.init
+        (homeModel, homeCmd) = Home.init loginModel
         model =
             { navKey = key
             , currentRoute = routeFromUrl url
-            , loginModel = Login.init
-            -- TODO: Load user session via port so that this can be Just user
-            , availabilityModel = Availability.init Nothing
+            , loginModel = loginModel
+            , availabilityModel = Availability.init user
             , meetingModel = meetingModel
             , homeModel = homeModel
             }
@@ -54,7 +59,7 @@ init () url key =
         , Cmd.batch
             [ Http.get
                 { url = "http://localhost:8001/user"
-                , expect = Http.expectJson (LoginMsg << Login.GotUser) Login.userDecoder
+                , expect = Http.expectJson (LoginMsg << Login.GotUser) userDecoder
                 }
             , Cmd.map MeetingMsg meetingCmd
             , Cmd.map HomeMsg homeCmd

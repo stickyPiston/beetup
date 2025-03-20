@@ -38,7 +38,7 @@ init user =
     , endTime = midnight
     , dateField = Nothing
     , attendeeName = Maybe.unwrap "" (\ u -> u.name) user 
-    , attendeeEmail = Maybe.unwrap "" (\ u -> u.email) user 
+    , attendeeEmail = Maybe.unwrap "" (\ u -> u.id) user 
     }
 
 -- UPDATE
