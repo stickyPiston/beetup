@@ -3,11 +3,10 @@ module Utils.Datatypes where
 import Data.IORef (IORef)
 import qualified Data.Map as M
 import Data.UUID (UUID)
-
-type Sessions = IORef (M.Map UUID Int)
-
 import Data.Time.LocalTime (TimeOfDay)
 import Text.ICalendar (Date)
+
+type Sessions = IORef (M.Map UUID Int)
 
 -- | Represents a time slot in which a user is available.
 --
@@ -30,10 +29,10 @@ data Occupancy = Occupancy { title     :: String -- ^ The title of the event, in
                            , date      :: Date -- ^ The date for which the availability holds
                            , startTime :: TimeOfDay -- ^ When does this time slot start?
                            , endTime   :: TimeOfDay -- ^ When does this time slot end?
-                           }
+                           } deriving (Show)
 
 -- | Some temporary identifier for a user TODO
-newtype UserId = UserId String
+newtype UserId = UserId String deriving (Show)
 
 -- | Represents a single timeslot of half an hour
 data TimeSlot = TimeSlot Date TimeOfDay TimeOfDay
@@ -48,3 +47,4 @@ data UserAvailabilities = UserAvailabilities UserId [Availability]
 -- | Contains all calendar events which the user uploaded, trimmed to just the basics.
 -- Represents all time slots where the user is not available.
 data UserOccupancies = UserOccupancies UserId [Occupancy]
+  deriving (Show)

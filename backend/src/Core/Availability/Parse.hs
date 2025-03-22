@@ -1,4 +1,4 @@
-module Availability.Parse (parseOccupancies, icalendarToOccupancies) where
+module Core.Availability.Parse (parseOccupancies, icalendarToOccupancies) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Tuple (swap)
@@ -9,7 +9,7 @@ import Data.Time
 import Data.Maybe (mapMaybe)
 import Data.Text.Lazy (unpack)
 
-import Utils.Datatypes (UserId, UserOccupancies (..), Occupancy (..), TimeRange (..))
+import Utils.Datatypes (UserId, UserOccupancies (..), Occupancy (Occupancy), TimeRange (..))
 
 type ImportError = String
 type ImportWarning = String

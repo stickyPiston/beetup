@@ -6,7 +6,7 @@ import Data.Text (Text, pack)
 import Utils.Datatypes
 import Data.Map as M
 import Data.Password.Bcrypt
-import Control.Monad.Cont (MonadIO(liftIO))
+import Control.Monad.IO.Class (liftIO)
 import Data.UUID (toASCIIBytes, toText, fromText)
 import Data.UUID.V4 (nextRandom)
 import Data.IORef (modifyIORef', readIORef)

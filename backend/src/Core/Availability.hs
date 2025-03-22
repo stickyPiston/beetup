@@ -1,4 +1,4 @@
-module Availability () where
+module Core.Availability () where
 
 
 

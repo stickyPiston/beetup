@@ -18,8 +18,8 @@ executable beetup-backend
                       , Utils.Functions
                       , Presentation.Authentication
                       , Presentation.User
-    									, Availability
-                      , Availability.Parse
+                      , Core.Availability
+                      , Core.Availability.Parse
     default-extensions: OverloadedStrings
                       , ViewPatterns
                       , DuplicateRecordFields
@@ -37,7 +37,7 @@ executable beetup-backend
                       , mtl
                       , password
                       , uuid
-											, iCalendar >= 0.4.1.1
+                      , iCalendar >= 0.4.1.1
                       , bytestring
                       , data-default
     hs-source-dirs:     src
