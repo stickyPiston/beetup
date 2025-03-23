@@ -13,7 +13,8 @@ common warnings
 executable beetup-backend
     import:             warnings
     main-is:            Main.hs
-    other-modules:      Integration.Datastore
+    other-modules:      Integration.UserStore
+                      , Integration.Init
                       , Utils.Datatypes
                       , Utils.Functions
                       , Presentation.Authentication
@@ -23,7 +24,7 @@ executable beetup-backend
     default-extensions: OverloadedStrings
                       , ViewPatterns
                       , DuplicateRecordFields
-    build-depends:      base ^>=4.17.2.1
+    build-depends:      base ^>=4.17.2.0
                       , twain
                       , warp
                       , text

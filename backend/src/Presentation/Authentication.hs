@@ -14,7 +14,8 @@ import Utils.Functions
 import Data.Maybe (fromJust)
 import Database.Persist (Entity(entityVal, entityKey))
 import Database.Persist.Sql (fromSqlKey)
-import Integration.Datastore (findUserByUsername, insertUser, User (User, userPassword, userName))
+import Integration.UserStore (findUserByUsername, insertUser)
+import Integration.Init (User (User, userPassword, userName))
 
 data LoginParams = LoginParams
   { username :: Text
