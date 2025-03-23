@@ -17,7 +17,7 @@
 module Integration.Init where
 
 import Database.Persist.TH (share, mkPersist, sqlSettings, mkMigrate, persistLowerCase)
-import Data.Time (Day, TimeOfDay)
+import Data.Time (UTCTime)
 import Data.Text (Text)
 import Database.Persist.Sqlite (runSqlite, runMigration)
 
@@ -30,9 +30,8 @@ UserEntity
 
 OccupancyEntity
   title Text
-  date Day
-  startTime TimeOfDay
-  endTime TimeOfDay
+  start UTCTime
+  end UTCTime
   userId UserEntityId
   deriving (Show)
 |]
