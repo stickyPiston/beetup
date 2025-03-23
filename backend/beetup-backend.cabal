@@ -14,6 +14,7 @@ executable beetup-backend
     import:             warnings
     main-is:            Main.hs
     other-modules:      Integration.UserStore
+                      , Integration.OccupancyStore
                       , Integration.Init
                       , Utils.Datatypes
                       , Utils.Functions

@@ -39,8 +39,8 @@ data Occupancy = Occupancy { title     :: String -- ^ The title of the event, in
                            , endTime   :: TimeOfDay -- ^ When does this time slot end?
                            } deriving (Show)
 
--- | Some temporary identifier for a user TODO
-newtype UserId = UserId String deriving (Show)
+-- | Some temporary identifier for a user
+type UserId = Int
 
 -- | Represents a single timeslot of half an hour
 data TimeSlot = TimeSlot Date TimeOfDay TimeOfDay
