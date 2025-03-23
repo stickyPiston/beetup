@@ -5,8 +5,16 @@ import qualified Data.Map as M
 import Data.UUID (UUID)
 import Data.Time.LocalTime (TimeOfDay)
 import Text.ICalendar (Date)
+import Data.Text
 
 type Sessions = IORef (M.Map UUID Int)
+
+-- | Represents a user in the system
+data User = User { id       :: Int -- ^ unique id
+                 , name     :: Text -- ^ Real name
+                 , username :: Text -- ^ unique username
+                 , password :: Text -- ^ Hashed password
+                 }
 
 -- | Represents a time slot in which a user is available.
 --

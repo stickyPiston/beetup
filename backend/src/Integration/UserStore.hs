@@ -1,26 +1,23 @@
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE UndecidableInstances       #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE TypeFamilies               #-}
-
 module Integration.UserStore where
 
 import Data.Text (Text)
 import Database.Persist
 import Database.Persist.Sqlite (runSqlite, toSqlKey)
 import Integration.Init
+import Utils.Datatypes (User)
+import Utils.Functions (entityToUser)
 
+findUserByUsername :: Text -> IO (Maybe User)
+findUserByUsername uname = do
+  e <- runSqlite "main.db" $ selectFirst [UserEntityUsername ==. uname] []
+  
+  return $ fmap entityToUser e
 
-findUserByUsername :: Text -> IO (Maybe (Entity User))
-findUserByUsername uname = runSqlite "main.db" $ selectFirst [UserUsername ==. uname] []
+findUserById :: Int -> IO (Maybe User)
+findUserById id = do
+  e <- runSqlite "main.db" $ selectFirst [UserEntityId ==. toSqlKey (fromIntegral id)] []
+  
+  return $ fmap entityToUser e
 
-findUserById :: Int -> IO (Maybe (Entity User))
-findUserById id = runSqlite "main.db" $ selectFirst [UserId ==. toSqlKey (fromIntegral id)] []
-
-insertUser :: User -> IO UserId
+insertUser :: UserEntity -> IO UserEntityId
 insertUser u = runSqlite "main.db" $ insert u

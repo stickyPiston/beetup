@@ -3,19 +3,22 @@ module Presentation.Authentication where
 import Web.Twain
 import Data.Aeson
 import Data.Text (Text, pack)
-import Utils.Datatypes
+import Utils.Datatypes as DT
 import Data.Map as M
 import Data.Password.Bcrypt
+    ( checkPassword,
+      hashPassword,
+      mkPassword,
+      PasswordCheck(PasswordCheckSuccess),
+      PasswordHash(PasswordHash, unPasswordHash) )
 import Control.Monad.IO.Class (liftIO)
 import Data.UUID (toASCIIBytes, toText, fromText)
 import Data.UUID.V4 (nextRandom)
 import Data.IORef (modifyIORef', readIORef)
 import Utils.Functions
 import Data.Maybe (fromJust)
-import Database.Persist (Entity(entityVal, entityKey))
-import Database.Persist.Sql (fromSqlKey)
 import Integration.UserStore (findUserByUsername, insertUser)
-import Integration.Init (User (User, userPassword, userName))
+import Integration.Init (UserEntity(UserEntity))
 
 data LoginParams = LoginParams
   { username :: Text
@@ -67,7 +70,7 @@ register = do
   hashedPassword <- liftIO $ hashPassword password
 
   -- Register user in database
-  userId <- liftIO $ insertUser $ User name uname (unPasswordHash hashedPassword)
+  userId <- liftIO $ insertUser $ UserEntity name uname (unPasswordHash hashedPassword)
   
   sessionID <- liftIO nextRandom
 
@@ -98,21 +101,20 @@ login sessions = do
   -- If the user doesn't exist, return 400 bad request
   whenNothing maybeUser (send $ status status400 $ text "User does not exist.")
 
-  let userEntity = fromJust maybeUser
-      id = fromSqlKey $ entityKey userEntity
-      user = entityVal userEntity
-      hash = userPassword user
+  let user = fromJust maybeUser
+      userId = DT.id user
+      hash = DT.password user
 
   -- Do a password check
   if checkPassword password (PasswordHash hash) == PasswordCheckSuccess
     then do
       -- If the passwords mach, return a new session ID
       sessionID <- liftIO nextRandom
-      liftIO $ modifyIORef' sessions $ M.insert sessionID (fromIntegral id)
+      liftIO $ modifyIORef' sessions $ M.insert sessionID userId
 
       send 
         $ withCookie "SESSION" (toText sessionID) 
-        $ json $ LoginResponse (userName user) (pack $ show id)
+        $ json $ LoginResponse (DT.name user) (pack $ show userId)
     else do
       -- If they don't match, return 401 unauthorized
       send 

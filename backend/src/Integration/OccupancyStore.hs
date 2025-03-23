@@ -1,0 +1,2 @@
+module OccupancyStore where
+

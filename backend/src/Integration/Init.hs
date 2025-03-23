@@ -22,18 +22,18 @@ import Data.Text (Text)
 import Database.Persist.Sqlite (runSqlite, runMigration)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
-User
+UserEntity
   name Text
   username Text
   password Text
   deriving (Show)
 
-Occupancy
+OccupancyEntity
   title Text
   date Day
   startTime TimeOfDay
   endTime TimeOfDay
-  userId UserId
+  userId UserEntityId
   deriving (Show)
 |]
 
@@ -42,6 +42,6 @@ initDB = runSqlite "main.db" $ do
   runMigration migrateAll
 
   -- Test Data
-  -- jortId <- insert $ User "Jort" "jortw" "helloworld"
+  -- jortId <- insert $ UserEntity "Jort" "jortw" "helloworld"
 
   return ()
