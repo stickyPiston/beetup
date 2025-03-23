@@ -19,7 +19,7 @@ type ImportWarning = String
 -- @Occupancy@ values with the user id, creating @UserOccupancies@.
 parseOccupancies :: UserId -> ByteString -> Either ImportError ([ImportWarning], UserOccupancies)
 parseOccupancies user bytes = fmap (UserOccupancies user . concatMap icalendarToOccupancies) . swap
-                             <$> parseICalendar def "test-path" bytes
+                             <$> parseICalendar def "Uploaded icalendar" bytes
 
 -- | Grabs all occupancies as described by an iCalendar.
 -- Note: events which we failed to fully parse as an occupancy are not included
@@ -45,9 +45,17 @@ grabTitle e = unpack . summaryValue <$> veSummary e
 -- It is in the definition of a @TimeRange@ that one is bound to a single day. We thus might need to return multiple ranges here.
 grabOccupancyTimeRanges :: VEvent -> Maybe [TimeRange]
 grabOccupancyTimeRanges e = do
-  utcStart <- dateTimeUTC . dtStartDateTimeValue <$> veDTStart e
-  utcEnd   <- dateTimeUTC . dtEndDateTimeValue <$> fmap (fromDTEndDurationToDTEnd utcStart) (veDTEndDuration e)
+  utcStart <- dateTimeToUTC . dtStartDateTimeValue <$> veDTStart e
+  utcEnd   <- dateTimeToUTC . dtEndDateTimeValue <$> fmap (fromDTEndDurationToDTEnd utcStart) (veDTEndDuration e)
   return $ toTimeRanges utcStart utcEnd
+
+-- FIXME this function assumes timezones if not present, can be determined by global timezone calendar element.
+dateTimeToUTC :: DateTime -> UTCTime
+dateTimeToUTC (FloatingDateTime lt) = localTimeToUTC utc1 lt
+dateTimeToUTC (UTCDateTime t) = t -- Currently only correct implementation
+dateTimeToUTC (ZonedDateTime lt _) = localTimeToUTC utc1 lt
+utc1 :: TimeZone
+utc1 = TimeZone 60 False "Amsterdam" -- FIXME summertime?
 
 -- | Given two timestamps, divides the time inbetween into time ranges restricted to whole days.
 toTimeRanges :: UTCTime -- ^ The start timestamp
@@ -55,10 +63,15 @@ toTimeRanges :: UTCTime -- ^ The start timestamp
              -> [TimeRange] -- ^ All time ranges inbetween start and end timestamps, each covering at most one fully day.
 toTimeRanges t1 t2 = let day1 = takeDate t1
                          day2 = takeDate t2
+                         time1 = takeTime t1
+                         time2 = takeTime t2
                     in if day1 < day2
-                         then TimeRange day1 (takeTime t1) (TimeOfDay 12 59 59)
-                               : toTimeRanges (addUTCTime nominalDay t1) t2 -- Add timerange of first day to results of other days
-                         else [TimeRange day1 (takeTime t1) (takeTime t2)]
+                         then TimeRange day1 time1 (TimeOfDay 23 59 59)
+                               : toTimeRanges
+                                   (addUTCTime nominalDay $ UTCTime (utctDay t1) (picosecondsToDiffTime 0)) -- Begin day 2
+                                   t2
+                         else [TimeRange day1 (takeTime t1) (takeTime t2)
+                                | time2 > time1] -- Covers edge cases
 
 
 -- | An event may potentially indicate its end with a duration and not a @UTCTime@. If so, convert it to a @UTCTime@.
