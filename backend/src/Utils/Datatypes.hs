@@ -3,9 +3,7 @@ module Utils.Datatypes where
 import Data.IORef (IORef)
 import qualified Data.Map as M
 import Data.UUID (UUID)
-import Data.Time.LocalTime (TimeOfDay)
-import Data.Time.Clock (UTCTime)
-import Text.ICalendar (Date)
+import Data.Time.Clock (UTCTime, NominalDiffTime, secondsToNominalDiffTime)
 
 type Sessions = IORef (M.Map UUID Int)
 
@@ -31,7 +29,7 @@ data Occupancy = Occupancy { oTitle :: String -- ^ The title of the event, inten
                            } deriving (Show)
 
 -- | Represents a single timeslot of half an hour
-data TimeSlot = TimeSlot Date TimeOfDay deriving (Show)
+newtype TimeSlot = TimeSlot UTCTime deriving (Show)
 
 instance Eq Occupancy where
   -- All fields but title considered
@@ -40,3 +38,9 @@ instance Eq Occupancy where
 instance Ord Occupancy where
   -- All fields but title considered
   a <= b = oStart a < oStart b || oStart a == oStart b && oEnd a <= oEnd b
+
+
+hour, minute, second :: NominalDiffTime
+hour   = secondsToNominalDiffTime 60 * 60
+minute = secondsToNominalDiffTime 60
+second = secondsToNominalDiffTime 1

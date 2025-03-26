@@ -1,47 +1,35 @@
 module Core.Availability () where
 
-import Core.Availability.Parse
-import Data.Time (TimeOfDay (TimeOfDay), midnight)
-import Text.ICalendar (Date (Date))
-import Data.List (sort, unfoldr, groupBy)
-import Utils.Datatypes (UserAvailabilities, UserOccupancies (UserOccupancies), Availability (Availability, aDate, aStartTime, aEndTime), Occupancy (oEndTime, oStartTime, Occupancy, oDate))
+import Data.Time (UTCTime)
+import Data.List (sort)
+import Utils.Datatypes (Availability (Availability), Occupancy (Occupancy))
 
-determineAvailabilites :: UserOccupancies
-                       -> Date
-                       -> Date
-                       -> UserAvailabilities
-determineAvailabilites (UserOccupancies userId occupancies) = undefined
+-- | Creates an availability from the given timestamps, and then removes all slices
+-- of that availability where an occupancy overlaps. The result is zero or more
+-- availabilities.
+--
+-- Note: assumes occupancies do not overlap.
+determineAvailabilites :: UTCTime -- ^ Start of timeslice to be considered
+                       -> UTCTime -- ^ End of timeslice to be considered
+                       -> [Occupancy] -- ^ Occupancies expressing no availability in the timeslice to be considered
+                       -> [Availability] -- ^ Resulting availabilities (zero or more)
+determineAvailabilites from til = foldl f [Availability from til] . sort
+  where
+    f :: [Availability] -> Occupancy -> [Availability]
+    f as = (init as ++) . substractOccupancy (last as)
 
--- Note: assumes that no occupancies overlap.
-determineAvail :: [Occupancy]
-                      -> Date
-                      -> Date
-                      -> [Availability]
-determineAvail os from til = concatMap splitAvailabilityWithOccupancy $ groupBy (\x y -> oDate x == oDate y) os
-
-
-availabilitiesBetween :: Date
-                      -> Date
-                      -> [Availability]
-availabilitiesBetween day1 day2 | day1 > day2 = []
-                                | day1 == day2 = [Availability day1 midnight (TimeOfDay 23 59 59)]
-                                | otherwise = [Availability day1 midnight (TimeOfDay 23 59 59)] : availabilitiesBetween (Date (addUt day day1) day2
-
--- Note that result is still sorted
-splitBy :: Availability -> Occupancy -> [Availability]
-splitBy a o | aDate a /= oDate o = error "Cannot split availabiliy by an occupancy on another date"
-            | otherwise = [Availability (aDate a) (aStartTime a) (oStartTime o),
-                           Availability (aDate a) (oEndTime   o) (aEndTime   a)]
-
--- Note: assumes sorted list of occupancies. Result is sorted.
-splitAvailabilityWithOccupancy :: Availability -> [Occupancy] -> [Availability]
-splitAvailabilityWithOccupancy a = foldr (\o as -> init as ++ splitBy (last as) o) [a]
-
--- Group by date
--- concatMap over all groups an unfoldr:
---    unfoldr f [Availability] group
---      where f occupancy availability = split availabiliy by occupancy
-
+-- | Shrinks, removes or splits an availability if it overlaps with an occupancy.
+--
+-- Note that result is still sorted.
+-- TODO move this to typeclass
+substractOccupancy :: Availability -> Occupancy -> [Availability]
+substractOccupancy (Availability a b) (Occupancy _ x y) | x >= y = error "Occupancy is invalid" -- TODO can we prevent these cases agda style?
+                                                        | a >= b = error "Availability is invalid"
+                                                        | x <= a && y >= b = []
+                                                        | x <= a && y <  b && y >  a = [Availability y b]
+                                                        | x >  a && x <  b && y >= b = [Availability a x]
+                                                        | x >  a && y <  b = [Availability a x, Availability y b]
+                                                        | otherwise = [Availability a b]
 
 -- TODO:
 -- Upload ICS file
