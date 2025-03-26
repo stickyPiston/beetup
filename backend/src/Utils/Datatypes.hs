@@ -4,6 +4,7 @@ import Data.IORef (IORef)
 import qualified Data.Map as M
 import Data.UUID (UUID)
 import Data.Time.LocalTime (TimeOfDay)
+import Data.Time.Clock (UTCTime)
 import Text.ICalendar (Date)
 
 type Sessions = IORef (M.Map UUID Int)
@@ -13,11 +14,10 @@ type Sessions = IORef (M.Map UUID Int)
 -- Note that it does not store for which user this availability is.
 --
 -- Also note that on a single day, multiple availabilities can exist,
--- typically interspersed by a user's appointment.
-data Availability = Availability { date      :: Date -- ^ The date for which the availability holds
-                                 , startTime :: TimeOfDay -- ^ When does this time slot start?
-                                 , endTime   :: TimeOfDay -- ^ When does this time slot end?
-                                 }
+-- typically interspersed by a user's occupancy.
+data Availability = Availability { aStart :: UTCTime -- ^ When does this availabiliy start?
+                                 , aEnd   :: UTCTime -- ^ When does this availabiliy end?
+                                 } deriving (Show, Eq, Ord)
 
 -- | Represents a time slot in which a user is /not/ available.
 --
@@ -25,26 +25,18 @@ data Availability = Availability { date      :: Date -- ^ The date for which the
 --
 -- Also note that on a single day, multiple occupancies can exist,
 -- typically interspersed by a user's availabilities.
-data Occupancy = Occupancy { title     :: String -- ^ The title of the event, intended to be only visible to the user
-                           , date      :: Date -- ^ The date for which the availability holds
-                           , startTime :: TimeOfDay -- ^ When does this time slot start?
-                           , endTime   :: TimeOfDay -- ^ When does this time slot end?
+data Occupancy = Occupancy { oTitle :: String -- ^ The title of the event, intended to be only visible to the user
+                           , oStart :: UTCTime -- ^ When does this occupancy start?
+                           , oEnd   :: UTCTime -- ^ When does this occupancy end?
                            } deriving (Show)
 
--- | Some temporary identifier for a user TODO
-newtype UserId = UserId String deriving (Show)
-
 -- | Represents a single timeslot of half an hour
-data TimeSlot = TimeSlot Date TimeOfDay TimeOfDay
+data TimeSlot = TimeSlot Date TimeOfDay deriving (Show)
 
--- | Represents a single range of time bound to a single day
-data TimeRange = TimeRange Date TimeOfDay TimeOfDay
+instance Eq Occupancy where
+  -- All fields but title considered
+  a == b = oStart a == oStart b && oEnd a == oEnd b
 
--- | Contains related availabilities of a single user.
--- Typically used to represent all availabilities of the user for a specific meeting.
-data UserAvailabilities = UserAvailabilities UserId [Availability]
-
--- | Contains all calendar events which the user uploaded, trimmed to just the basics.
--- Represents all time slots where the user is not available.
-data UserOccupancies = UserOccupancies UserId [Occupancy]
-  deriving (Show)
+instance Ord Occupancy where
+  -- All fields but title considered
+  a <= b = oStart a < oStart b || oStart a == oStart b && oEnd a <= oEnd b

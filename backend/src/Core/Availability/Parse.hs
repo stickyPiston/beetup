@@ -1,4 +1,4 @@
-module Core.Availability.Parse (parseOccupancies, icalendarToOccupancies) where
+module Core.Availability.Parse (parseOccupancies) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Tuple (swap)
@@ -9,69 +9,58 @@ import Data.Time
 import Data.Maybe (mapMaybe)
 import Data.Text.Lazy (unpack)
 
-import Utils.Datatypes (UserId, UserOccupancies (..), Occupancy (Occupancy), TimeRange (..))
+import Utils.Datatypes (Occupancy (Occupancy))
 
 type ImportError = String
 type ImportWarning = String
 
 -- | First parses a @ByteString@ into a @VCalendar@, and then interprets the @VCalendar@ into
--- @UserOccupancies@. It does so by calling @icalendarToOccupancies@ and combining the resulting
+-- @UserOccupancies@. It does so by calling @vcalendarToOccupancies@ and combining the resulting
 -- @Occupancy@ values with the user id, creating @UserOccupancies@.
-parseOccupancies :: UserId -> ByteString -> Either ImportError ([ImportWarning], UserOccupancies)
-parseOccupancies user bytes = fmap (UserOccupancies user . concatMap icalendarToOccupancies) . swap
-                             <$> parseICalendar def "Uploaded icalendar" bytes
+parseOccupancies :: ByteString -> Either ImportError ([ImportWarning], [Occupancy])
+parseOccupancies bytes = fmap (concatMap vcalendarToOccupancies) . swap
+                           <$> parseICalendar def "Uploaded vcalendar" bytes
 
 -- | Grabs all occupancies as described by an iCalendar.
 -- Note: events which we failed to fully parse as an occupancy are not included
 -- Note: as explained in @grabOccupancies@, one event might be represented by multiple occupancies.
-icalendarToOccupancies :: VCalendar -> [Occupancy]
-icalendarToOccupancies cal = let events = elems $ vcEvents cal
-                      in concat $ mapMaybe grabOccupancies events
+vcalendarToOccupancies :: VCalendar -> [Occupancy]
+vcalendarToOccupancies = mapMaybe grabOccupancy . elems . vcEvents
 
 -- | Interprets a @VEvent@ into multiple @Occupancy@ values.
 -- It is in the definition of a @Occupancy@ that one is bound to a single day.
 -- We thus might find multiple occupancies here (one for each day).
-grabOccupancies :: VEvent -> Maybe [Occupancy]
-grabOccupancies e = do
-  title <- grabTitle e
-  occupancies <- grabOccupancyTimeRanges e
-  return $ map (\(TimeRange date start end) -> Occupancy title date start end) occupancies
+grabOccupancy :: VEvent -> Maybe Occupancy
+grabOccupancy e = do
+  title <- unpack . summaryValue <$> veSummary e
+  start <- dateTimeToUTC . dtStartDateTimeValue <$> veDTStart e
+  end   <- dateTimeToUTC . dtEndDateTimeValue <$> fmap (fromDTEndDurationToDTEnd start) (veDTEndDuration e)
+  return $ Occupancy title start end
 
--- | Grabs a title from a @VEvent@, if present.
-grabTitle :: VEvent -> Maybe String
-grabTitle e = unpack . summaryValue <$> veSummary e
-
--- | Determines the raw timewise occupancy described by the given @VEvent@, and returns it in the shape of concurrent @TimeRange@ values.
--- It is in the definition of a @TimeRange@ that one is bound to a single day. We thus might need to return multiple ranges here.
-grabOccupancyTimeRanges :: VEvent -> Maybe [TimeRange]
-grabOccupancyTimeRanges e = do
-  utcStart <- dateTimeToUTC . dtStartDateTimeValue <$> veDTStart e
-  utcEnd   <- dateTimeToUTC . dtEndDateTimeValue <$> fmap (fromDTEndDurationToDTEnd utcStart) (veDTEndDuration e)
-  return $ toTimeRanges utcStart utcEnd
-
--- FIXME this function assumes timezones if not present, can be determined by global timezone calendar element.
+-- TODO this function assumes timezones if not present, can be determined by global timezone calendar element.
 dateTimeToUTC :: DateTime -> UTCTime
 dateTimeToUTC (FloatingDateTime lt) = localTimeToUTC utc1 lt
 dateTimeToUTC (UTCDateTime t) = t -- Currently only correct implementation
 dateTimeToUTC (ZonedDateTime lt _) = localTimeToUTC utc1 lt
 utc1 :: TimeZone
-utc1 = TimeZone 60 False "Amsterdam" -- FIXME summertime?
+utc1 = TimeZone 60 False "Amsterdam" -- TODO summertime?
 
--- | Given two timestamps, divides the time inbetween into time ranges restricted to whole days.
-toTimeRanges :: UTCTime -- ^ The start timestamp
-             -> UTCTime -- ^ The end timestamp
-             -> [TimeRange] -- ^ All time ranges inbetween start and end timestamps, each covering at most one fully day.
-toTimeRanges t1 t2 = let day1 = takeDate t1
-                         day2 = takeDate t2
-                         time1 = takeTime t1
-                         time2 = takeTime t2
-                    in if day1 < day2
-                         then TimeRange day1 time1 (TimeOfDay 23 59 59)
-                               : toTimeRanges
-                                   (addUTCTime nominalDay $ UTCTime (utctDay t1) (picosecondsToDiffTime 0)) -- Begin day 2
-                                   t2
-                         else [TimeRange day1 (takeTime t1) (takeTime t2)
-                                | time2 > time1] -- Covers edge cases
+-- | Given two timestamps, returns @TimeSlot@s such that all time between timestamps are covered
+-- (and thus potentially a little more, depending on definition on a @TimeSlot@)
+-- toTimeSlices :: TimeZone -- ^ The timezone for which to determine end of days
+--              -> UTCTime -- ^ The start timestamp
+--              -> UTCTime -- ^ The end timestamp
+--              -> [TimeSlot] -- ^ All timeslots covering time between start and end timestamps
+-- toTimeSlices tz = go (round t1 down to start slot)
+--   where go t1 t2 | t1 > t2   = []
+--         go t1 t2 | otherwise = TimeSlot date t1 : go (t1 + half hour) t2
+-- -- toTimeSlices t1 t2 = if day1 < day2
+-- --                          then TimeSlice day1 time1 (TimeOfDay 23 59 59)
+-- --                                : toTimeSlices
+-- --                                    (addUTCTime nominalDay $ UTCTime (utctDay t1) (picosecondsToDiffTime 0)) -- Begin day 2
+-- --                                    t2
+-- --                          else [TimeSlice day1 (takeTime t1) (takeTime t2)
+-- --                                 | time2 > time1] -- Covers edge cases
 
 
 -- | An event may potentially indicate its end with a duration and not a @UTCTime@. If so, convert it to a @UTCTime@.
@@ -89,17 +78,11 @@ fromDTEndDurationToDTEnd startTimeUTC (Right d) = flip DTEndDateTime def $ UTCDa
 
 {- Some small helper methods follow below -}
 
-takeDate :: UTCTime -> Date
-takeDate = Date . utctDay
-
-takeTime :: UTCTime -> TimeOfDay
-takeTime = timeToTimeOfDay . utctDayTime
-
 -- | Given a @NominalDiffTime@, returns a multiple of the @NominalDiffTime@
 times :: NominalDiffTime -> Int -> NominalDiffTime
 times dt n = iterate (+ dt) dt !! n
 
 hour, minute, second :: NominalDiffTime
-hour   = secondsToNominalDiffTime $ 60 * 60
+hour   = secondsToNominalDiffTime 60 * 60
 minute = secondsToNominalDiffTime 60
 second = secondsToNominalDiffTime 1
