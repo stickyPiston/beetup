@@ -1,4 +1,4 @@
-module Core.Availability.Parse (parseOccupancies, toTimeSlices) where
+module Core.Availability.Parse (parseOccupancies) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Tuple (swap)
@@ -9,7 +9,7 @@ import Data.Time
 import Data.Maybe (mapMaybe)
 import Data.Text.Lazy (unpack)
 
-import Utils.Datatypes (Occupancy (Occupancy), TimeSlot (TimeSlot), hour, minute, second)
+import Utils.Datatypes (Occupancy (Occupancy), hour, minute, second)
 import Utils.Functions (times)
 
 type ImportError = String
@@ -53,13 +53,4 @@ fromDTEndDurationToDTEnd startTimeUTC (Right d) = flip DTEndDateTime def $ UTCDa
     (DurationDate _ days hours minutes seconds) -> addUTCTime (nominalDay `times` days + hour `times` hours + minute `times` minutes + second `times` seconds) startTimeUTC
     (DurationTime _ hours minutes seconds)      -> addUTCTime (                          hour `times` hours + minute `times` minutes + second `times` seconds) startTimeUTC
     (DurationWeek _ weeks)                      -> addUTCTime (nominalDay `times` weeks * 7) startTimeUTC
-
--- | Given two timestamps, returns @TimeSlot@s such that all time between timestamps are covered
--- (and thus potentially a little more, since the final e.g. 15 minutes will be covered by an e.g. 30 min timeslot).
-toTimeSlices :: NominalDiffTime -- ^ Time difference between the start of each @TimeSlot@
-             -> UTCTime -- ^ The start timestamp (should align with half hour intervals)
-             -> UTCTime -- ^ The end timestamp
-             -> [TimeSlot] -- ^ All timeslots covering time between start and end timestamps
-toTimeSlices s t1 t2 | t1 >= t2  = []
-                     | otherwise = TimeSlot t1 : toTimeSlices s (addUTCTime s t1) t2
 
