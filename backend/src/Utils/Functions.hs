@@ -3,7 +3,7 @@ import Integration.Init (UserEntity (UserEntity, userEntityName, userEntityUsern
 import Utils.Datatypes (User (password, username, name, User), Occupancy (title, date, startTime, endTime, Occupancy))
 import Data.Text (pack)
 import Text.ICalendar (Date (Date))
-import Data.Time (Day)
+import Data.Time (Day, NominalDiffTime)
 import Database.Persist (Entity (entityKey, entityVal))
 import Database.Persist.Sql (fromSqlKey)
 
@@ -43,3 +43,8 @@ entityToOccupancy e =do
     (Date $ occupancyEntityDate val) 
     (occupancyEntityStartTime val) 
     (occupancyEntityStartTime val)
+
+-- | Given a @NominalDiffTime@, returns a multiple of the @NominalDiffTime@
+times :: NominalDiffTime -> Int -> NominalDiffTime
+times dt n = iterate (+ dt) dt !! n
+
