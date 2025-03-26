@@ -1,4 +1,4 @@
-module Core.Availability.Parse (parseOccupancies) where
+module Core.Availability.Parse (parseOccupancies, toTimeSlices) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Tuple (swap)
@@ -43,16 +43,6 @@ dateTimeToUTC (ZonedDateTime lt _) = localTimeToUTC utc1 lt
 utc1 :: TimeZone
 utc1 = TimeZone 60 False "Amsterdam"
 
--- | Given two timestamps, returns @TimeSlot@s such that all time between timestamps are covered
--- (and thus potentially a little more, since the final e.g. 15 minutes will be covered by an e.g. 30 min timeslot).
-toTimeSlices :: NominalDiffTime -- ^ Time difference between the start of each @TimeSlot@
-             -> UTCTime -- ^ The start timestamp (should align with half hour intervals)
-             -> UTCTime -- ^ The end timestamp
-             -> [TimeSlot] -- ^ All timeslots covering time between start and end timestamps
-toTimeSlices s t1 t2 | t1 >= t2  = []
-                     | otherwise = TimeSlot t1 : toTimeSlices s (addUTCTime s t1) t2
-
-
 -- | An event may potentially indicate its end with a duration and not a @UTCTime@. If so, convert it to a @UTCTime@.
 fromDTEndDurationToDTEnd :: UTCTime -- ^ The event starting date
                          -> Either DTEnd DurationProp -- ^ Contains either the absolute end date or the event duration
@@ -63,4 +53,13 @@ fromDTEndDurationToDTEnd startTimeUTC (Right d) = flip DTEndDateTime def $ UTCDa
     (DurationDate _ days hours minutes seconds) -> addUTCTime (nominalDay `times` days + hour `times` hours + minute `times` minutes + second `times` seconds) startTimeUTC
     (DurationTime _ hours minutes seconds)      -> addUTCTime (                          hour `times` hours + minute `times` minutes + second `times` seconds) startTimeUTC
     (DurationWeek _ weeks)                      -> addUTCTime (nominalDay `times` weeks * 7) startTimeUTC
+
+-- | Given two timestamps, returns @TimeSlot@s such that all time between timestamps are covered
+-- (and thus potentially a little more, since the final e.g. 15 minutes will be covered by an e.g. 30 min timeslot).
+toTimeSlices :: NominalDiffTime -- ^ Time difference between the start of each @TimeSlot@
+             -> UTCTime -- ^ The start timestamp (should align with half hour intervals)
+             -> UTCTime -- ^ The end timestamp
+             -> [TimeSlot] -- ^ All timeslots covering time between start and end timestamps
+toTimeSlices s t1 t2 | t1 >= t2  = []
+                     | otherwise = TimeSlot t1 : toTimeSlices s (addUTCTime s t1) t2
 
