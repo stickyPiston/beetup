@@ -75,6 +75,8 @@ class (Ord a, Eq a) => TimeSlice a where
 -- Should be interpreted as the second timeslice being subtracted
 -- from the first @TimeSlice@. The result is thus alterations of the first
 -- @TimeSlice@.
+--
+-- Note: returns @Nothing@ if the timeslices were not valid
 disj :: (TimeSlice a, TimeSlice b) => a -> b -> Maybe [a]
 disj original substr | not $ valid original = Nothing
                      | not $ valid substr   = Nothing

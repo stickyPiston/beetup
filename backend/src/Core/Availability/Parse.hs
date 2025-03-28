@@ -5,7 +5,7 @@ import Data.Tuple (swap)
 import Data.Default (def)
 import Data.Map.Internal (elems)
 import Text.ICalendar
-import Data.Time
+import Data.Time (UTCTime, addUTCTime, nominalDay, localTimeToUTC, TimeZone(TimeZone))
 import Data.Maybe (mapMaybe)
 import Data.Text.Lazy (unpack)
 
