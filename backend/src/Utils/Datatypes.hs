@@ -54,19 +54,31 @@ class (Ord a, Eq a) => TimeSlice a where
   setStart :: a -> UTCTime -> a
   setEnd :: a -> UTCTime -> a
 
+  -- | Returns the start and end time
   range :: a -> (UTCTime, UTCTime)
   range a = (start a, end a)
 
-  overlaps, contains :: (TimeSlice b) => a -> b -> Bool
+  -- | Tests whether the first argument completely supersedes the second.
+  -- It is thus not commutative.
+  contains :: (TimeSlice b) => a -> b -> Bool
   contains a b = start a <= start b && end a >= end b
+  -- | Tests whether the first argument overlaps with the second.
+  -- This function is commutative.
+  overlaps :: (TimeSlice b) => a -> b -> Bool
   overlaps a b = end a > start b && end a <= end b
                  || start b < end a && start b >= start a
-  earlier, later :: (TimeSlice b) => a -> b -> Bool
+
+  -- | Tests whether the first @TimeSlice@ starts earlier than the second.
+  earlier :: (TimeSlice b) => a -> b -> Bool
   a `earlier` b = start a < start b
+  -- | Tests whether the first @TimeSlice@ starts later than the second.
+  later :: (TimeSlice b) => a -> b -> Bool
   a `later` b = start a > start b
 
+  -- | Tests whether the end time is indeed after the start time.
   valid :: a -> Bool -- TODO can we prevent needing these cases, agda style?
   valid a = start a < end a
+  -- | Calculates the time difference between the end and start time.
   length :: a -> NominalDiffTime
   length = uncurry (flip diffUTCTime) . range
 
@@ -76,7 +88,7 @@ class (Ord a, Eq a) => TimeSlice a where
 -- from the first @TimeSlice@. The result is thus alterations of the first
 -- @TimeSlice@.
 --
--- Note: returns @Nothing@ if the timeslices were not valid
+-- Note: returns @Nothing@ if the timeslices were not valid.
 disj :: (TimeSlice a, TimeSlice b) => a -> b -> Maybe [a]
 disj original substr | not $ valid original = Nothing
                      | not $ valid substr   = Nothing
