@@ -1,4 +1,4 @@
-module OccupancyStore where
+module Integration.OccupancyStore where
 
 import Database.Persist (selectList, (==.), PersistStoreWrite (insert))
 import Integration.Init (UserEntityId, EntityField (OccupancyEntityUserId))
