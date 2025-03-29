@@ -30,9 +30,6 @@ timeSlots s t1 t2 | t1 >= t2  = []
                   | otherwise = TimeSlot t1 s : timeSlots s (addUTCTime s t1) t2
 
 -- TODO:
--- Upload ICS file
--- > Convert to occupancies: title, datetime range
--- > Store occupancies
 -- Visualize occupancies, edit them -> global occupancy
 -- > Given a range, determine availability
 -- store copy of availability of meeting: per meeting or per user?
