@@ -6,6 +6,7 @@ import Text.ICalendar (Date (Date))
 import Database.Persist (Entity (entityKey, entityVal))
 import Database.Persist.Sql (fromSqlKey)
 import Integration.Init
+import Data.Time (NominalDiffTime)
 
 whenNothing :: Monad m => Maybe a -> m () -> m ()
 whenNothing Nothing f = f
