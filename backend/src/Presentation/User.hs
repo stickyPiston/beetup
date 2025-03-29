@@ -1,4 +1,5 @@
 module Presentation.User where
+
 import Web.Twain (ResponderM, send, text, status, status400, json)
 import Utils.Datatypes (User (name), Sessions)
 import Presentation.Authentication (requireSession, LoginResponse (LoginResponse))

@@ -50,7 +50,7 @@ instance FromJSON RegisterParams where
     <*> o .: "password"
     <*> o .: "name"
 
-requireSession :: Sessions -> ResponderM Int
+requireSession :: Sessions -> ResponderM UserId
 requireSession sessions = do
   sessionCookie <- cookieParamMaybe "SESSION"
   sessionMap <- liftIO $ readIORef sessions

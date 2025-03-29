@@ -28,3 +28,6 @@ storeUserOccupancy uId o = runSqlite "main.db" $ do
   
   _ <- insert entity
   return ()
+
+storeUserOccupancies :: UserId -> [Occupancy] -> IO ()
+storeUserOccupancies uId = mapM_ (storeUserOccupancy uId) 
