@@ -14,7 +14,7 @@ import Pages.Home as Home
 import Pages.Availability as Availability
 import Pages.Meeting as Meeting
 
-import Models exposing (userDecoder)
+import Models exposing (User, userDecoder)
 import Json.Decode as Decode
 
 main : Program Decode.Value Model Msg
@@ -36,22 +36,23 @@ type alias Model =
     , meetingModel : Meeting.Model
     , availabilityModel : Availability.Model
     , homeModel : Home.Model
+    , user : Maybe User
     }
 
 init : Decode.Value -> Url -> Key -> (Model, Cmd Msg)
 init flag url key =
     let user = Decode.decodeValue userDecoder flag
             |> Result.toMaybe
-        loginModel = Login.init user
         (meetingModel, meetingCmd) = Meeting.init
-        (homeModel, homeCmd) = Home.init loginModel
+        (homeModel, homeCmd) = Home.init
         model =
             { navKey = key
             , currentRoute = routeFromUrl url
-            , loginModel = loginModel
+            , loginModel = Login.init
             , availabilityModel = Availability.init user
             , meetingModel = meetingModel
             , homeModel = homeModel
+            , user = user
             }
      in ( model
         , Cmd.batch
@@ -76,15 +77,21 @@ update msg model = case msg of
     OnUrlRequest request -> case request of
         Internal url -> (model, Nav.pushUrl model.navKey (Url.toString url))
         External url -> (model, Nav.load url)
+    LoginMsg (Login.GotUser response as lmsg) ->
+        let (newLoginModel, cmd) = Login.update model.navKey lmsg model.loginModel
+            loginResponse = ({ model | loginModel = newLoginModel }, Cmd.map LoginMsg cmd)
+         in case response of
+            Err _ -> loginResponse
+            Ok user -> Tuple.mapFirst (\ newModel -> { newModel | user = Just user }) loginResponse
     LoginMsg lmsg ->
         let (newModel, cmd) = Login.update model.navKey lmsg model.loginModel
-            -- TODO: Move user logic out of the login page
-            homeModel = model.homeModel
-            updateHome login = { homeModel | login = login } 
-         in ({ model | loginModel = newModel, homeModel = updateHome newModel }, Cmd.map LoginMsg cmd)
+         in ({ model | loginModel = newModel }, Cmd.map LoginMsg cmd)
     HomeMsg hmsg ->
-        let (newModel, cmd) = Home.update hmsg model.homeModel
-         in ({ model | homeModel = newModel }, Cmd.map HomeMsg cmd)
+        let (newHomeModel, cmd) = Home.update hmsg model.homeModel
+            updateResponse = ({ model | homeModel = newHomeModel }, Cmd.map HomeMsg cmd)
+         in case hmsg of
+            Home.LoggedOut _ -> Tuple.mapFirst (\ newModel -> { newModel | user = Nothing }) updateResponse
+            _ -> updateResponse
     AvailabilityMsg cmsg ->
         let (newModel, cmd) = Availability.update cmsg model.availabilityModel
          in ({ model | availabilityModel = newModel }, Cmd.map AvailabilityMsg cmd)
@@ -96,7 +103,7 @@ view : Model -> Document Msg
 view model =
     { title = "Elm"
     , body = case model.currentRoute of
-        Home -> Home.view model.homeModel |> List.map (Html.map HomeMsg)
+        Home -> Home.view model.user model.homeModel |> List.map (Html.map HomeMsg)
         Meeting -> Meeting.view model.meetingModel |> List.map (Html.map MeetingMsg)
         Availability id -> Availability.view model.availabilityModel |> List.map (Html.map AvailabilityMsg)
         Login -> Login.view model.loginModel |> List.map (Html.map LoginMsg)

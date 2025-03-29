@@ -6,8 +6,7 @@ import Html.Attributes exposing (href)
 
 import Http
 
-import Pages.Login as LoginPage
-import Models exposing (Meeting, meetingDecoder)
+import Models exposing (Meeting, meetingDecoder, User)
 import Json.Decode exposing (list)
 
 -- MODEL
@@ -18,14 +17,12 @@ type FetchRequest a
     | Error Http.Error
 
 type alias Model =
-    { login : LoginPage.Model
-    , meetings : FetchRequest (List Meeting)
+    { meetings : FetchRequest (List Meeting)
     }
 
-init : LoginPage.Model -> (Model, Cmd Msg)
-init login =
-    ( { login = login
-      , meetings = Loading
+init : (Model, Cmd Msg)
+init =
+    ( { meetings = Loading
       }
     , Http.get
         { url = "http://localhost:8001/meetings"
@@ -49,21 +46,14 @@ update msg model = case msg of
             , expect = Http.expectWhatever LoggedOut
             }
         )
-    LoggedOut response ->
-        let updateModel newLogin = { model | login = newLogin }
-            login = model.login
-         in ( response
-                |> Result.map  (\ _ -> updateModel { login | user = Nothing })
-                |> Result.withDefault model
-            , Cmd.none
-            )
+    LoggedOut _ -> (model, Cmd.none)
     GotMeetings (Ok meetings) -> ({ model | meetings = Got meetings }, Cmd.none)
     GotMeetings (Err error) -> ({ model | meetings = Error error }, Cmd.none)
 
 -- VIEW
 
-view : Model -> List (Html Msg)
-view model = case model.login.user of
+view : Maybe User -> Model -> List (Html Msg)
+view user model = case user of
     Just { name } ->
         [ text ("Welcome " ++ name ++ "!")
         , button [onClick Logout] [text "Log out"]
