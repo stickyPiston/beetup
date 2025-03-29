@@ -5,9 +5,10 @@ import Web.Twain
 import Data.IORef (newIORef)
 import qualified Data.Map as M
 
-import Integration.Datastore (initDB)
+import Integration.Init (initDB)
 import Presentation.Authentication (register, logout, login)
 import Presentation.User (getUserMe)
+import Presentation.Calendar (importUserCalendar)
 
 main :: IO ()
 main = do
@@ -20,6 +21,7 @@ main = do
       [ 
         post "/login" (login sessions)
       , post "/register" register
+      , post "/calendar" (importUserCalendar sessions)
       , get "/user" (getUserMe sessions)
       , get "/logout" (logout sessions)
       ]

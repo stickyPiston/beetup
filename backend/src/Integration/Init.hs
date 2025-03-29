@@ -1,4 +1,3 @@
-
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE DataKinds                  #-}
@@ -15,27 +14,25 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Integration.Datastore where
+module Integration.Init where
 
 import Database.Persist.TH (share, mkPersist, sqlSettings, mkMigrate, persistLowerCase)
-import Data.Time (Day, TimeOfDay)
+import Data.Time (UTCTime)
 import Data.Text (Text)
-import Database.Persist
-import Database.Persist.Sqlite (runSqlite, runMigration, toSqlKey)
+import Database.Persist.Sqlite (runSqlite, runMigration)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
-User
+UserEntity
   name Text
   username Text
   password Text
   deriving (Show)
 
-Occupancy
+OccupancyEntity
   title Text
-  date Day
-  startTime TimeOfDay
-  endTime TimeOfDay
-  userId UserId
+  start UTCTime
+  end UTCTime
+  userId UserEntityId
   deriving (Show)
 |]
 
@@ -44,15 +41,6 @@ initDB = runSqlite "main.db" $ do
   runMigration migrateAll
 
   -- Test Data
-  -- jortId <- insert $ User "Jort" "jortw" "helloworld"
+  -- jortId <- insert $ UserEntity "Jort" "jortw" "helloworld"
 
   return ()
-
-findUserByUsername :: Text -> IO (Maybe (Entity User))
-findUserByUsername uname = runSqlite "main.db" $ selectFirst [UserUsername ==. uname] []
-
-findUserById :: Int -> IO (Maybe (Entity User))
-findUserById id = runSqlite "main.db" $ selectFirst [UserId ==. toSqlKey (fromIntegral id)] []
-
-insertUser :: User -> IO UserId
-insertUser u = runSqlite "main.db" $ insert u

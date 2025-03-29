@@ -4,8 +4,16 @@ import Data.IORef (IORef)
 import qualified Data.Map as M
 import Data.UUID (UUID)
 import Data.Time.Clock (UTCTime, NominalDiffTime, secondsToNominalDiffTime)
+import Data.Text
 
 type Sessions = IORef (M.Map UUID Int)
+
+-- | Represents a user in the system
+data User = User { id       :: Int -- ^ unique id
+                 , name     :: Text -- ^ Real name
+                 , username :: Text -- ^ unique username
+                 , password :: Text -- ^ Hashed password
+                 }
 
 -- | Represents a time slot in which a user is available.
 --
@@ -27,6 +35,9 @@ data Occupancy = Occupancy { oTitle :: String -- ^ The title of the event, inten
                            , oStart :: UTCTime -- ^ When does this occupancy start?
                            , oEnd   :: UTCTime -- ^ When does this occupancy end?
                            } deriving (Show)
+
+-- | Some temporary identifier for a user
+type UserId = Int
 
 -- | Represents a single timeslot of half an hour
 newtype TimeSlot = TimeSlot UTCTime deriving (Show)
