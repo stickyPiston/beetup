@@ -49,8 +49,11 @@ instance Ord Occupancy where
 -- | Represents datatypes which have a start and end time.
 -- Is accompanied with many helpful functions on those times.
 class (Ord a, Eq a) => TimeSlice a where
+  {-# MINIMAL (start , end | range) , setStart , setEnd #-}
   start :: a -> UTCTime
+  start = fst . range
   end :: a -> UTCTime
+  end = snd . range
   setStart :: a -> UTCTime -> a
   setEnd :: a -> UTCTime -> a
 
