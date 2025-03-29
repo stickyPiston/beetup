@@ -9,6 +9,7 @@ import Integration.Init (initDB)
 import Presentation.Authentication (register, logout, login)
 import Presentation.User (getUserMe)
 import Presentation.Calendar (importUserCalendar)
+import Presentation.Occupancies (getUserOccupancies)
 
 main :: IO ()
 main = do
@@ -24,6 +25,7 @@ main = do
       , post "/calendar" (importUserCalendar sessions)
       , get "/user" (getUserMe sessions)
       , get "/logout" (logout sessions)
+      , get "/occupancies" (getUserOccupancies sessions)
       ]
 
 missing :: ResponderM a

@@ -21,6 +21,7 @@ executable beetup-backend
                       , Presentation.Authentication
                       , Presentation.User
                       , Presentation.Calendar
+                      , Presentation.Occupancies
                       , Core.Availability
                       , Core.Availability.Parse
     default-extensions: OverloadedStrings

@@ -8,7 +8,7 @@ import Utils.Datatypes (UserId, Occupancy)
 import Utils.Functions (entityToOccupancy, occupancyToEntity)
 
 -- Function to find user occupancies by user ID
-findUserOccupancies :: UserId -> IO (UserId, [Occupancy])
+findUserOccupancies :: UserId -> IO [Occupancy]
 findUserOccupancies uId = runSqlite "main.db" $ do
   
   -- Convert int to UserEntityId
@@ -16,7 +16,7 @@ findUserOccupancies uId = runSqlite "main.db" $ do
   
   os <- selectList [OccupancyEntityUserId ==. userId] []
 
-  return (uId, map entityToOccupancy os)
+  return $ map entityToOccupancy os
 
 storeUserOccupancy :: UserId -> Occupancy -> IO ()
 storeUserOccupancy uId o = runSqlite "main.db" $ do
