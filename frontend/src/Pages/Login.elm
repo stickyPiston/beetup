@@ -16,7 +16,6 @@ import Models exposing (User, userDecoder)
 type alias Model =
     { loginForm : LoginForm
     , registerForm : RegisterForm
-    , user : Maybe User
     }
 
 type alias LoginForm =
@@ -30,8 +29,8 @@ type alias RegisterForm =
     , name : String
     }
 
-init : Maybe User -> Model
-init user =
+init : Model
+init =
     { loginForm =
         { username = ""
         , password = ""
@@ -41,7 +40,6 @@ init user =
         , password = ""
         , name = ""
         }
-    , user = user
     }
 
 -- UPDATE
@@ -82,12 +80,11 @@ update key msg model = case msg of
                     }
              in (model, request)
         Err _ -> (model, Cmd.none)
-    GotUser response -> case response of
-        Ok user ->
-            ( { model | user = Just user }
-            , Nav.pushUrl key "/"
-            )
-        Err _ -> (model, Cmd.none)
+    GotUser response ->
+        let newModel = { model | loginForm = { username = "", password = "" } }
+         in case response of
+            Ok _ -> (newModel , Nav.pushUrl key "/")
+            Err _ -> (newModel, Cmd.none)
 
 -- DECODERS / ENCODERS
 
