@@ -1,6 +1,6 @@
 module Pages.Home exposing (..)
 
-import Html exposing (Html, text, button, a, div, h2, ul, li, strong, input)
+import Html exposing (Html, text, button, a, div, h2, ul, li, strong, input, p)
 import Html.Events exposing (onClick, on)
 import Html.Attributes exposing (href, multiple, type_)
 
@@ -9,7 +9,6 @@ import File exposing (File)
 
 import Models exposing (Meeting, meetingDecoder, User)
 import Json.Decode as Decode exposing (Decoder, list)
-import Maybe.Extra as Maybe
 
 -- MODEL
 
@@ -21,12 +20,14 @@ type FetchRequest a
 type alias Model =
     { meetings : FetchRequest (List Meeting)
     , selectedFile : Maybe File
+    , error : Maybe String
     }
 
 init : (Model, Cmd Msg)
 init =
     ( { meetings = Loading
       , selectedFile = Nothing
+      , error = Nothing
       }
     , Http.get
         { url = "http://localhost:8001/meetings"
@@ -63,9 +64,11 @@ update msg model = case msg of
                 , body = Http.fileBody file
                 , expect = Http.expectWhatever UploadedFile
                 }
-         in (model, Maybe.unwrap Cmd.none uploadCmd model.selectedFile)
-    UploadedFile (Ok _) -> ({ model | selectedFile = Nothing }, Cmd.none)
-    UploadedFile _ -> (model, Cmd.none)
+         in case model.selectedFile of
+            Just file -> ({ model | error = Nothing }, uploadCmd file)
+            Nothing -> ({ model | error = Just "You did not selected a file" }, Cmd.none)
+    UploadedFile (Ok _) -> ({ model | selectedFile = Nothing, error = Nothing }, Cmd.none)
+    UploadedFile _ -> ({ model | error = Just "Could not upload file" }, Cmd.none)
 
 fileDecoder : Decoder Msg
 fileDecoder =
@@ -82,10 +85,15 @@ fileDecoder =
 view : Maybe User -> Model -> List (Html Msg)
 view user model = case user of
     Just { name } ->
-        [ text ("Welcome " ++ name ++ "!")
-        , button [onClick Logout] [text "Log out"]
-        , viewMeetings model
-        ] ++ viewCalendarUpload
+        let prependErrorTo body = case model.error of
+                Nothing -> body
+                Just error -> p [] [text error] :: body
+         in prependErrorTo
+            [ p [] [text ("Welcome " ++ name ++ "!")]
+            , p [] [button [onClick Logout] [text "Log out"]]
+            , p [] [viewMeetings model]
+            , viewCalendarUpload
+            ] 
     Nothing ->
         [ text "Please login first!"
         , a [href "/login"] [text "To the login page"]
@@ -105,13 +113,14 @@ viewMeetings model = case model.meetings of
 viewMeeting : Meeting -> Html Msg
 viewMeeting meeting = li [] [a [href <| "/availability/" ++ meeting.id] [text meeting.title]]
 
-viewCalendarUpload : List (Html Msg)
+viewCalendarUpload : Html Msg
 viewCalendarUpload =
-    [ input
-        [ type_ "file"
-        , multiple False
-        , on "change" (fileDecoder)
+    p []
+        [ input
+            [ type_ "file"
+            , multiple False
+            , on "change" (fileDecoder)
+            ]
+            []
+        , button [onClick UploadFile] [text "Upload calendar"]
         ]
-        []
-    , button [onClick UploadFile] [text "Upload calendar"]
-    ]
