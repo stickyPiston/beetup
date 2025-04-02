@@ -1,5 +1,4 @@
 module Presentation.Occupancies where
-import Network.HTTP.Types (status200)
 import Utils.Datatypes (Sessions, Occupancy (Occupancy))
 import Web.Twain (ResponderM, send, json)
 import Presentation.Authentication (requireSession)
