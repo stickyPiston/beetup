@@ -22,6 +22,7 @@ import Data.Text (Text)
 import Database.Persist.Sqlite (runSqlite, runMigration)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
+
 UserEntity
   name Text
   username Text
@@ -33,6 +34,20 @@ OccupancyEntity
   start UTCTime
   end UTCTime
   userId UserEntityId
+  deriving (Show)
+
+AvailabilityEntity
+  start UTCTime
+  end UTCTime
+  userId UserEntityId
+  deriving (Show)
+
+MeetingEntity
+  title Text
+  start UTCTime
+  end UTCTime
+  userId UserEntityId
+  availabilities [AvailabilityEntity]
   deriving (Show)
 |]
 
