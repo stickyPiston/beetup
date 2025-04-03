@@ -38,8 +38,11 @@ data Occupancy = Occupancy { oTitle :: Text -- ^ The title of the event, intende
                            , oStart :: UTCTime -- ^ When does this occupancy start?
                            , oEnd   :: UTCTime -- ^ When does this occupancy end?
                            } deriving (Show)
+type MeetingId = Text
 
-data Meeting = Meeting { mTitle          :: Text
+
+data Meeting = Meeting { mId             :: MeetingId
+                       , mTitle          :: Text
                        , mStart          :: UTCTime
                        , mEnd            :: UTCTime
                        , mUserId         :: UserId

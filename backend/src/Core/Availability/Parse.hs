@@ -7,7 +7,7 @@ import Data.Map.Internal (elems)
 import Text.ICalendar
 import Data.Time (UTCTime, addUTCTime, nominalDay, localTimeToUTC, TimeZone(TimeZone))
 import Data.Maybe (mapMaybe)
-import Data.Text.Lazy (unpack)
+import Data.Text.Lazy (toStrict)
 
 import Utils.Datatypes (Occupancy (Occupancy), hour, minute, second)
 import Utils.Functions (times)
@@ -29,10 +29,10 @@ vcalendarToOccupancies = mapMaybe grabOccupancy . elems . vcEvents
 -- | Interprets a @VEvent@ into an @Occupancy@.
 grabOccupancy :: VEvent -> Maybe Occupancy
 grabOccupancy e = do
-  title <- unpack . summaryValue <$> veSummary e
+  title <- summaryValue <$> veSummary e
   start <- dateTimeToUTC . dtStartDateTimeValue <$> veDTStart e
   end   <- dateTimeToUTC . dtEndDateTimeValue <$> fmap (fromDTEndDurationToDTEnd start) (veDTEndDuration e)
-  return $ Occupancy title start end
+  return $ Occupancy (toStrict title) start end
 
 -- TODO it is possible to parse the timezone specified globally, makes this complete
 -- | Converts a datetime to UTC, assuming the utc + 1 timezone if no timezone is specified.

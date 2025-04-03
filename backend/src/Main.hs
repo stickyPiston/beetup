@@ -10,6 +10,7 @@ import Presentation.Authentication (register, logout, login)
 import Presentation.User (getUserMe)
 import Presentation.Calendar (importUserCalendar)
 import Presentation.Occupancies (getUserOccupancies)
+import Presentation.Meeting (createMeeting, addAvailabilitiesToMeeting, getMeetingWithId)
 
 main :: IO ()
 main = do
@@ -23,9 +24,12 @@ main = do
         post "/login" (login sessions)
       , post "/register" register
       , post "/calendar" (importUserCalendar sessions)
+      , post "/meeting" (createMeeting sessions)
+      , put  "/meeting/:mId" (addAvailabilitiesToMeeting sessions)
       , get "/user" (getUserMe sessions)
       , get "/logout" (logout sessions)
       , get "/occupancies" (getUserOccupancies sessions)
+      , get "/meeting/:mId" (getMeetingWithId sessions)
       ]
 
 missing :: ResponderM a

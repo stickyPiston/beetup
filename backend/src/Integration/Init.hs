@@ -43,6 +43,7 @@ AvailabilityEntity
   deriving (Show)
 
 MeetingEntity
+  meetingId Text
   title Text
   start UTCTime
   end UTCTime
