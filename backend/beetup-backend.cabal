@@ -15,6 +15,7 @@ executable beetup-backend
     main-is:            Main.hs
     other-modules:      Integration.UserStore
                       , Integration.OccupancyStore
+                      , Integration.MeetingStore
                       , Integration.Init
                       , Utils.Datatypes
                       , Utils.Functions
@@ -22,6 +23,7 @@ executable beetup-backend
                       , Presentation.User
                       , Presentation.Calendar
                       , Presentation.Occupancies
+                      , Presentation.Meeting
                       , Core.Availability
                       , Core.Availability.Parse
     default-extensions: OverloadedStrings

@@ -1,5 +1,5 @@
 module Utils.Functions where
-import Utils.Datatypes (User (password, username, name, User), Occupancy (oTitle, oStart, oEnd, Occupancy), Meeting (Meeting, mTitle, mStart, mEnd, mAvailabilities, mUserId), Availability (Availability, aStart, aEnd, aUserId))
+import Utils.Datatypes (User (password, username, name, User), Occupancy (oTitle, oStart, oEnd, Occupancy), Meeting (Meeting, mTitle, mStart, mEnd, mAvailabilities, mUserId, mId), Availability (Availability, aStart, aEnd, aUserId))
 import Data.Time (Day, NominalDiffTime)
 import Text.ICalendar (Date (Date))
 import Database.Persist (Entity (entityKey, entityVal))
@@ -61,6 +61,7 @@ entityToAvailability e =do
 
 meetingToEntity :: Meeting -> MeetingEntity
 meetingToEntity m = MeetingEntity 
+  (mId m)
   (mTitle m) 
   (mStart m) 
   (mEnd m) 
@@ -72,6 +73,7 @@ entityToMeeting e =do
   let val = entityVal e
   let uId = fromSqlKey (meetingEntityUserId val)
   Meeting
+    (meetingEntityMeetingId val)
     (meetingEntityTitle val)
     (meetingEntityStart val)
     (meetingEntityEnd val)
