@@ -2,7 +2,7 @@ module Core.Availability (determineAvailabilites, timeSlots) where
 
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime)
 import Data.List (sort)
-import Utils.Datatypes (Availability (Availability), Occupancy, TimeSlot (TimeSlot), disj)
+import Utils.Datatypes (Availability (Availability), Occupancy, TimeSlot (TimeSlot), disj, UserId)
 
 -- | Creates an availability from the given timestamps, and then removes all slices
 -- of that availability where an occupancy overlaps. The result is zero or more
@@ -12,9 +12,10 @@ import Utils.Datatypes (Availability (Availability), Occupancy, TimeSlot (TimeSl
 determineAvailabilites :: UTCTime -- ^ Start of timeslice to be considered
                        -> UTCTime -- ^ End of timeslice to be considered
                        -> [Occupancy] -- ^ Occupancies expressing no availability in the timeslice to be considered
+                       -> UserId -- ^ UserId of the availability
                        -> Maybe [Availability] -- ^ Resulting availabilities (zero or more)
-determineAvailabilites from til os | from >= til = Nothing
-                                   | otherwise   = foldl f (Just [Availability from til]) $ sort os
+determineAvailabilites from til os id | from >= til = Nothing
+                                   | otherwise   = foldl f (Just [Availability from til id]) $ sort os
   where
     f :: Maybe [Availability] -> Occupancy -> Maybe [Availability]
     f Nothing   = const Nothing

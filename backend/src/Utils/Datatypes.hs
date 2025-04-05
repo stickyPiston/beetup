@@ -23,8 +23,9 @@ data User = User { id       :: Int -- ^ unique id
 --
 -- Also note that on a single day, multiple availabilities can exist,
 -- typically interspersed by a user's occupancy.
-data Availability = Availability { aStart :: UTCTime -- ^ When does this availabiliy start?
-                                 , aEnd   :: UTCTime -- ^ When does this availabiliy end?
+data Availability = Availability { aStart  :: UTCTime -- ^ When does this availabiliy start?
+                                 , aEnd    :: UTCTime -- ^ When does this availabiliy end?
+                                 , aUserId :: UserId
                                  } deriving (Show, Eq, Ord)
 
 -- | Represents a time slot in which a user is /not/ available.
@@ -33,10 +34,20 @@ data Availability = Availability { aStart :: UTCTime -- ^ When does this availab
 --
 -- Also note that on a single day, multiple occupancies can exist,
 -- typically interspersed by a user's availabilities.
-data Occupancy = Occupancy { oTitle :: String -- ^ The title of the event, intended to be only visible to the user
+data Occupancy = Occupancy { oTitle :: Text -- ^ The title of the event, intended to be only visible to the user
                            , oStart :: UTCTime -- ^ When does this occupancy start?
                            , oEnd   :: UTCTime -- ^ When does this occupancy end?
                            } deriving (Show)
+type MeetingId = Text
+
+
+data Meeting = Meeting { mId             :: MeetingId
+                       , mTitle          :: Text
+                       , mStart          :: UTCTime
+                       , mEnd            :: UTCTime
+                       , mUserId         :: UserId
+                       , mAvailabilities :: [Availability]
+                       } deriving (Show)
 
 -- | Some temporary identifier for a user
 type UserId = Int
@@ -55,7 +66,6 @@ instance Ord Occupancy where
   -- All fields but title considered
   (<=) :: Occupancy -> Occupancy -> Bool
   a <= b = oStart a < oStart b || oStart a == oStart b && oEnd a <= oEnd b
-
 
 -- | Represents datatypes which have a start and end time.
 -- Is accompanied with many helpful functions on those times.
