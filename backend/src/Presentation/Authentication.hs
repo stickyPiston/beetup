@@ -1,9 +1,12 @@
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase #-}
+
 module Presentation.Authentication where
 
 import Web.Twain
 import Data.Aeson
 import Data.Text (Text, pack)
-import Utils.Datatypes as DT
+import Utils.Datatypes
 import Data.Map as M
 import Data.Password.Bcrypt
     ( checkPassword,
@@ -16,9 +19,9 @@ import Data.UUID (toASCIIBytes, toText, fromText)
 import Data.UUID.V4 (nextRandom)
 import Data.IORef (modifyIORef', readIORef)
 import Utils.Functions
-import Data.Maybe (fromJust)
 import Integration.UserStore (findUserByUsername, insertUser)
 import Integration.Init (UserEntity(UserEntity))
+import Utils.Endpoint (withDB, DBPool)
 
 data LoginParams = LoginParams
   { username :: Text
@@ -58,19 +61,19 @@ requireSession sessions = do
     Just userID -> return userID
     Nothing -> send $ status status401 $ text "Unauthorized."
 
-register :: ResponderM a
-register = do
+register :: DBPool -> ResponderM a
+register pool = do
   RegisterParams uname (mkPassword -> password) name <- fromBody
 
   -- Check if user exists
-  maybeUser <- liftIO $ findUserByUsername uname
+  maybeUser <- withDB pool $ findUserByUsername uname
   whenJust maybeUser (\_ -> send $ status status400 $ text "User already exists." )
 
   -- Hash password for security reasons
   hashedPassword <- liftIO $ hashPassword password
 
   -- Register user in database
-  userId <- liftIO $ insertUser $ UserEntity name uname (unPasswordHash hashedPassword)
+  userId <- withDB pool $ insertUser $ UserEntity name uname (unPasswordHash hashedPassword)
   
   sessionID <- liftIO nextRandom
 
@@ -90,33 +93,22 @@ logout sessions = do
     _ -> return ()
   send $ raw status200 [] ""
 
-login :: Sessions     -- Session information
-       -> ResponderM a -- Response
-login sessions = do
+login :: Sessions -> DBPool -> ResponderM a
+login sessions pool = do
   LoginParams uname (mkPassword -> password) <- fromBody
 
   -- Grab the user
-  maybeUser <- liftIO $ findUserByUsername uname
+  withDB pool (findUserByUsername uname) >>= \case
+    -- If the user doesn't exist, return 400 bad request
+    Nothing -> send $ status status400 $ text "User does not exist."
 
-  -- If the user doesn't exist, return 400 bad request
-  whenNothing maybeUser (send $ status status400 $ text "User does not exist.")
+    Just User { id, password = userPassword, name }
+      | checkPassword password (PasswordHash userPassword) == PasswordCheckSuccess -> do
+        -- If the passwords mach, return a new session ID
+        sessionID <- liftIO nextRandom
+        liftIO $ modifyIORef' sessions $ M.insert sessionID id
 
-  let user = fromJust maybeUser
-      userId = DT.id user
-      hash = DT.password user
-
-  -- Do a password check
-  if checkPassword password (PasswordHash hash) == PasswordCheckSuccess
-    then do
-      -- If the passwords mach, return a new session ID
-      sessionID <- liftIO nextRandom
-      liftIO $ modifyIORef' sessions $ M.insert sessionID userId
-
-      send 
-        $ withCookie "SESSION" (toText sessionID) 
-        $ json $ LoginResponse (DT.name user) (pack $ show userId)
-    else do
-      -- If they don't match, return 401 unauthorized
-      send 
-        $ status status401
-        $ text "Incorrect password"
+        send 
+          $ withCookie "SESSION" (toText sessionID) 
+          $ json $ LoginResponse name (pack $ show id)
+      | otherwise -> send $ status status401 $ text "Incorrect password"

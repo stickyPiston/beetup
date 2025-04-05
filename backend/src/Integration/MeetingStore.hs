@@ -1,33 +1,22 @@
 module Integration.MeetingStore where
+
 import Utils.Datatypes (Meeting, MeetingId, Availability)
-import Database.Persist.Sqlite (runSqlite, PersistStoreWrite (insert, update), PersistQueryRead (selectFirst), toSqlKey, PersistQueryWrite (updateWhere), Entity (entityKey))
+import Database.Persist.Sqlite (insert, update, selectFirst, Entity (entityKey))
 import Database.Persist ((==.), (=.))
-import Utils.Functions (meetingToEntity, entityToMeeting, availabilityToEntity, whenNothing)
-import Integration.Init (MeetingEntityId, EntityField(MeetingEntityMeetingId, MeetingEntityAvailabilities), MeetingEntity (meetingEntityMeetingId))
-import Control.Monad.IO.Class (MonadIO(liftIO))
+import Utils.Functions (meetingToEntity, entityToMeeting, availabilityToEntity)
+import Integration.Init (EntityField(MeetingEntityMeetingId, MeetingEntityAvailabilities))
+import Utils.Endpoint (SqlQuery)
+import Control.Monad (void)
 
-storeMeeting :: Meeting -> IO ()
-storeMeeting m = runSqlite "main.db" $ do
+storeMeeting :: Meeting -> SqlQuery ()
+storeMeeting = void . insert . meetingToEntity
 
-  let entity = meetingToEntity m
-  
-  _ <- insert entity
-  return ()
+findMeetingById :: MeetingId -> SqlQuery (Maybe Meeting)
+findMeetingById id = fmap entityToMeeting <$> selectFirst [MeetingEntityMeetingId ==. id] []
 
-findMeetingById :: MeetingId -> IO (Maybe Meeting)
-findMeetingById id = runSqlite "main.db" $ do
-  
-  meeting <- selectFirst [MeetingEntityMeetingId ==. id] []
-
-  return $ fmap entityToMeeting meeting
-
-updateAvailabilities :: MeetingId -> [Availability] -> IO (Maybe Meeting)
-updateAvailabilities mId as = runSqlite "main.db" $ do  
-  mMeeting <- selectFirst [MeetingEntityMeetingId ==. mId] []
-
-  case mMeeting of  
-    Nothing -> return Nothing
-    Just meeting ->do
+updateAvailabilities :: MeetingId -> [Availability] -> SqlQuery (Maybe Meeting)
+updateAvailabilities mId as = selectFirst [MeetingEntityMeetingId ==. mId] [] >>= maybe (return Nothing) updateMeeting
+  where
+    updateMeeting meeting = do
       update (entityKey meeting) [MeetingEntityAvailabilities =. map availabilityToEntity as]
-  
-      liftIO $ findMeetingById mId
+      findMeetingById mId

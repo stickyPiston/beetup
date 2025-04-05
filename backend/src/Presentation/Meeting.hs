@@ -1,5 +1,9 @@
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE LambdaCase #-}
+
 module Presentation.Meeting where
-import Utils.Datatypes (Sessions, Meeting (Meeting, mTitle, mStart, mEnd, mUserId, mAvailabilities), UserId, Availability (Availability), MeetingId)
+
+import Utils.Datatypes (Sessions, Meeting (..), UserId, Availability (Availability), MeetingId)
 import Web.Twain (ResponderM, send, fromBody, status, status200, json, text, status400, param)
 import Presentation.Authentication (requireSession)
 import Control.Monad.IO.Class (liftIO)
@@ -8,10 +12,8 @@ import Data.Text (pack, Text)
 import Data.Aeson ((.=), (.:), FromJSON (parseJSON), withObject, object, ToJSON)
 import Data.Time (UTCTime)
 import Integration.MeetingStore (storeMeeting, findMeetingById, updateAvailabilities)
-import Utils.Functions (whenNothing)
-import Data.Maybe (fromJust)
-import Web.Twain.Types (ResponderM(ResponderM))
 import Data.Aeson.Types (ToJSON(toJSON))
+import Utils.Endpoint (DBPool, withDB)
 
 data MeetingParams = MeetingParams {
     title :: Text,
@@ -76,8 +78,8 @@ meetingToResponse (Meeting mId t s e uId as) = MeetingResponse
 availabilityToResponse :: Availability -> AvailabilityResponse
 availabilityToResponse (Availability s e uId) = AvailabilityResponse (pack $ show s) (pack $ show e) uId
 
-createMeeting :: Sessions -> ResponderM a
-createMeeting sessions = do
+createMeeting :: Sessions -> DBPool -> ResponderM a
+createMeeting sessions pool = do
   MeetingParams title start end <- fromBody
 
   uId <- requireSession sessions
@@ -85,35 +87,30 @@ createMeeting sessions = do
 
   let meeting = Meeting (pack $ show meetingId) title start end uId []
   
-  _ <- liftIO $ storeMeeting meeting
+  _ <- withDB pool $ storeMeeting meeting
 
   send $ status status200 $ json $ object ["meetingId" .= meetingId]
 
-addAvailabilitiesToMeeting :: Sessions -> ResponderM a
-addAvailabilitiesToMeeting sessions = do
+addAvailabilitiesToMeeting :: Sessions -> DBPool -> ResponderM a
+addAvailabilitiesToMeeting sessions pool = do
   uId <- requireSession sessions
   mId <- param "mId"
-  aps <- fromBody :: ResponderM [AvailabilityParams]
+  (availabilityParamsToAvailabilities uId -> bodyAps) <- fromBody
 
-  maybeMeeting <- liftIO $ findMeetingById mId
-  whenNothing maybeMeeting (send $ status status400 $ text "No such meeting")
+  withDB pool (findMeetingById mId) >>= \case
+    Nothing -> send $ status status400 $ text "No such meeting"
+    Just Meeting { mAvailabilities } ->
+      withDB pool (updateAvailabilities mId (mAvailabilities ++ bodyAps)) >>= \case
+        Nothing -> send $ status status400 $ text "Couldn't fetch updated meeting"  
+        Just _ -> send $ status status200 $ text "Done."
 
-  let m = fromJust maybeMeeting
-
-  mNewMeeting <- liftIO $ updateAvailabilities mId (mAvailabilities m ++ availabilityParamsToAvailabilities uId aps)
-  whenNothing mNewMeeting (send $ status status400 $ text "Couldn't fetch updated meeting")  
-
-  send $ status status200 $ text "Done."
-
-getMeetingWithId :: Sessions -> ResponderM a
-getMeetingWithId _ = do
+getMeetingWithId :: DBPool -> ResponderM a
+getMeetingWithId pool = do
   mId <- param "mId"
   
-  maybeMeeting <- liftIO $ findMeetingById mId
-  whenNothing maybeMeeting (send $ status status400 $ text "No such meeting")
-
-  send $ status status200 $ json (meetingToResponse $ fromJust maybeMeeting)
-
+  withDB pool (findMeetingById mId) >>= \case
+    Nothing -> send $ status status400 $ text "No such meeting"
+    Just meeting -> send $ status status200 $ json (meetingToResponse meeting)
 
 availabilityParamsToAvailabilities :: UserId -> [AvailabilityParams] -> [Availability]
 availabilityParamsToAvailabilities uId = map (\ (AvailabilityParams s e) -> Availability s e uId)

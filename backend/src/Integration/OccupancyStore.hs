@@ -3,31 +3,25 @@ module Integration.OccupancyStore where
 import Database.Persist (selectList, (==.), PersistStoreWrite (insert))
 import Integration.Init (UserEntityId, EntityField (OccupancyEntityUserId))
 import Database.Persist.Sql (toSqlKey)
-import Database.Persist.Sqlite (runSqlite)
+import Control.Monad (void)
 import Utils.Datatypes (UserId, Occupancy)
 import Utils.Functions (entityToOccupancy, occupancyToEntity)
+import Utils.Endpoint (SqlQuery)
 
 -- Function to find user occupancies by user ID
-findUserOccupancies :: UserId -> IO [Occupancy]
-findUserOccupancies uId = runSqlite "main.db" $ do
-  
+findUserOccupancies :: UserId -> SqlQuery [Occupancy]
+findUserOccupancies uId =
   -- Convert int to UserEntityId
   let userId = toSqlKey (fromIntegral uId) :: UserEntityId
-  
-  os <- selectList [OccupancyEntityUserId ==. userId] []
+      entitiesQuery = selectList [OccupancyEntityUserId ==. userId] []
+   in map entityToOccupancy <$> entitiesQuery
 
-  return $ map entityToOccupancy os
-
-storeUserOccupancy :: UserId -> Occupancy -> IO ()
-storeUserOccupancy uId o = runSqlite "main.db" $ do
-  
+storeUserOccupancy :: UserId -> Occupancy -> SqlQuery ()
+storeUserOccupancy uId o =
   -- Convert int to UserEntityId
   let userId = toSqlKey (fromIntegral uId) :: UserEntityId
+      entity = occupancyToEntity o userId
+   in void $ insert entity
 
-  let entity = occupancyToEntity o userId
-  
-  _ <- insert entity
-  return ()
-
-storeUserOccupancies :: UserId -> [Occupancy] -> IO ()
+storeUserOccupancies :: UserId -> [Occupancy] -> SqlQuery ()
 storeUserOccupancies uId = mapM_ (storeUserOccupancy uId) 

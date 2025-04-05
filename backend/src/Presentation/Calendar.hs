@@ -7,22 +7,21 @@ import qualified Data.Text as T
 import Integration.OccupancyStore (storeUserOccupancies)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Web.Twain (ResponderM, send, status, status400, text, status200, request, strictRequestBody)
+import Utils.Endpoint (DBPool, withDB)
 
-importUserCalendar :: Sessions -> ResponderM a
-importUserCalendar sessions = do
+importUserCalendar :: Sessions -> DBPool -> ResponderM a
+importUserCalendar sessions pool = do
   -- Find ID from the session cookie
   uId <- requireSession sessions
 
   req <- request
   body <- liftIO $ strictRequestBody req
 
-  let eitherOs = parseOccupancies body
-
-  case eitherOs of
+  case parseOccupancies body of
     -- File cannot be parsed correcly, return 400 with error
     Left e        -> send $ status status400 $ text $ T.pack e
     -- File can be parsed correctly, store it in the database
-    Right (w, os) ->do
-      _ <- liftIO $ storeUserOccupancies uId os
+    Right (w, os) -> do
+      _ <- withDB pool $ storeUserOccupancies uId os
       
       send $ status status200 $ text $ T.concat $ map T.pack w

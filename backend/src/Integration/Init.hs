@@ -19,7 +19,8 @@ module Integration.Init where
 import Database.Persist.TH (share, mkPersist, sqlSettings, mkMigrate, persistLowerCase)
 import Data.Time (UTCTime)
 import Data.Text (Text)
-import Database.Persist.Sqlite (runSqlite, runMigration)
+import Database.Persist.Sqlite (runMigration, runSqlPersistMPool)
+import Utils.Endpoint (DBPool)
 
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 
@@ -52,11 +53,5 @@ MeetingEntity
   deriving (Show)
 |]
 
-initDB :: IO ()
-initDB = runSqlite "main.db" $ do
-  runMigration migrateAll
-
-  -- Test Data
-  -- jortId <- insert $ UserEntity "Jort" "jortw" "helloworld"
-
-  return ()
+initDB :: DBPool -> IO ()
+initDB = runSqlPersistMPool (runMigration migrateAll)
