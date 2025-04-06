@@ -12,10 +12,13 @@ import Utils.DateTime exposing (dateDecoder, timeDecoder)
 -- DATA TYPES
 
 type alias Availability =
-    { date : Date
+    { id : String
+    , date : Date
     , startTime : Time
     , endTime : Time
     }
+
+type alias Occupancy = Availability
 
 type AvailabilityTimeType
     = StartTime
@@ -50,6 +53,7 @@ meetingDecoder = Decode.succeed Meeting
 
 availabilityDecoder : Decoder Availability
 availabilityDecoder = Decode.succeed Availability
+    |> required "id" string
     |> required "date" dateDecoder
     |> required "startTime" timeDecoder
     |> required "endTime" timeDecoder

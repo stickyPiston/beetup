@@ -7,8 +7,11 @@ import Html.Attributes exposing (href, multiple, type_)
 import Http
 import File exposing (File)
 
-import Models exposing (Meeting, meetingDecoder, User)
+import Models exposing (User, Occupancy, User)
+import Utils.DateTime exposing (DateTime, formatDateTime, utcTimeDecoder)
+import List.Extra as List
 import Json.Decode as Decode exposing (Decoder, list)
+import Json.Decode.Pipeline exposing (required)
 
 -- MODEL
 
@@ -17,10 +20,23 @@ type FetchRequest a
     | Got a
     | Error Http.Error
 
+type alias Occupancy =
+    { title : String
+    , start : DateTime
+    , end : DateTime
+    }
+
+type alias Meeting =
+    { id : String
+    , noOfUsers : Int
+    , title : String
+    }
+
 type alias Model =
     { meetings : FetchRequest (List Meeting)
     , selectedFile : Maybe File
     , error : Maybe String
+    , occupancies : List Occupancy
     }
 
 init : (Model, Cmd Msg)
@@ -28,11 +44,18 @@ init =
     ( { meetings = Loading
       , selectedFile = Nothing
       , error = Nothing
+      , occupancies = []
       }
-    , Http.get
-        { url = "http://localhost:8001/meetings"
-        , expect = Http.expectJson GotMeetings (list meetingDecoder)
-        }
+    , Cmd.batch
+        [ Http.get
+            { url = "http://localhost:8001/meeting"
+            , expect = Http.expectJson GotMeetings meetingsDecoder
+            }
+        , Http.get
+            { url = "http://localhost:8001/occupancies"
+            , expect = Http.expectJson GotOccupancies occupanciesDecoder
+            }
+        ]
     )
 
 -- UPDATE
@@ -44,6 +67,9 @@ type Msg
     | SelectedFile File
     | UploadFile
     | UploadedFile (Result Http.Error ())
+    -- | DeleteOccupancy Int
+    -- | DeletedOccupancy Int (Result Http.Error ())
+    | GotOccupancies (Result Http.Error (List Occupancy))
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = case msg of
@@ -69,6 +95,24 @@ update msg model = case msg of
             Nothing -> ({ model | error = Just "You did not selected a file" }, Cmd.none)
     UploadedFile (Ok _) -> ({ model | selectedFile = Nothing, error = Nothing }, Cmd.none)
     UploadedFile _ -> ({ model | error = Just "Could not upload file" }, Cmd.none)
+    -- DeleteOccupancy idx ->
+    --     case List.getAt idx model.occupancies of
+    --         Just occupancy -> (model, Http.request
+    --             { method = "DELETE"
+    --             , headers = []
+    --             , url = "http://localhost:8001/occupancies/" ++ occupancy.id
+    --             , body = Http.emptyBody
+    --             , expect = Http.expectWhatever (DeletedOccupancy idx)
+    --             , timeout = Nothing
+    --             , tracker = Nothing
+    --             })
+    --         Nothing -> (model, Cmd.none) -- Cannot happen
+    -- DeletedOccupancy _ (Err _) -> ({ model | error = Just "Could not delete occupancy" }, Cmd.none)
+    -- DeletedOccupancy idx (Ok _) ->
+    --     let updatedOccupancies = List.removeAt idx model.occupancies 
+    --      in ({ model | occupancies = updatedOccupancies }, Cmd.none)
+    GotOccupancies (Err _) -> ({ model | error = Just "Could not retrieve occupancies" }, Cmd.none)
+    GotOccupancies (Ok occupancies) -> ({ model | occupancies = occupancies }, Cmd.none)
 
 fileDecoder : Decoder Msg
 fileDecoder =
@@ -79,6 +123,22 @@ fileDecoder =
         |> Decode.at ["target", "files"]
         |> Decode.andThen decodeFirst
         |> Decode.map SelectedFile
+
+meetingsDecoder : Decoder (List Meeting)
+meetingsDecoder =
+    Decode.succeed Meeting
+    |> required "id" Decode.string
+    |> required "noOfUsers" Decode.int
+    |> required "title" Decode.string
+    |> Decode.list
+
+occupanciesDecoder : Decoder (List Occupancy)
+occupanciesDecoder =
+    Decode.succeed Occupancy
+    |> required "title" Decode.string
+    |> required "start" utcTimeDecoder
+    |> required "end" utcTimeDecoder
+    |> Decode.list
 
 -- VIEW
 
@@ -92,7 +152,7 @@ view user model = case user of
             [ p [] [text ("Welcome " ++ name ++ "!")]
             , p [] [button [onClick Logout] [text "Log out"]]
             , p [] [viewMeetings model]
-            , viewCalendarUpload
+            , viewOccupanciesPanel model.occupancies
             ] 
     Nothing ->
         [ text "Please login first!"
@@ -113,6 +173,13 @@ viewMeetings model = case model.meetings of
 viewMeeting : Meeting -> Html Msg
 viewMeeting meeting = li [] [a [href <| "/availability/" ++ meeting.id] [text meeting.title]]
 
+viewOccupanciesPanel : List Occupancy -> Html Msg
+viewOccupanciesPanel occupancies = div []
+    [ h2 [] [text "Occupancies"]
+    , viewCalendarUpload
+    , viewOccupancies occupancies
+    ]
+
 viewCalendarUpload : Html Msg
 viewCalendarUpload =
     p []
@@ -123,4 +190,14 @@ viewCalendarUpload =
             ]
             []
         , button [onClick UploadFile] [text "Upload calendar"]
+        ]
+
+viewOccupancies : List Occupancy -> Html Msg
+viewOccupancies occupancies = ul [] (List.indexedMap viewOccupancy occupancies)
+
+viewOccupancy : Int -> Occupancy -> Html Msg
+viewOccupancy idx { title, start, end } =
+    li []
+        [ text <| title ++ " from " ++ formatDateTime start ++ " to " ++ formatDateTime end
+        -- , button [onClick (DeleteOccupancy idx)] [text "Delete"]
         ]

@@ -1,8 +1,9 @@
 module Utils.DateTime exposing
-    ( Date, Time
+    ( Date, Time, DateTime
     , parseDate, parseTime
     , dateDecoder, timeDecoder
-    , formatDate, formatTime
+    , utcTimeParser, utcTimeDecoder
+    , formatDate, formatTime, formatDateTime
     , getWeekStart
     , incrementDays, decrementDays
     , millisToDate
@@ -12,10 +13,14 @@ module Utils.DateTime exposing
 import Calendar exposing (Date, months, getDay, getMonth, monthToInt, getYear, getWeekday, decrementDay, incrementDay)
 import Clock exposing (Time, getHours, getMinutes)
 import Time exposing (millisToPosix, Weekday(..))
+import DateTime
+
+import Parser exposing (Parser, succeed, chompIf, symbol, (|=), (|.), problem, chompWhile, oneOf)
 
 import Maybe.Extra as Maybe
+import List.Extra as List
+import Result.Extra as Result
 import Array
-import List.Extra
 
 import Json.Decode as Decode exposing (Decoder, int)
 
@@ -23,6 +28,7 @@ import Json.Decode as Decode exposing (Decoder, int)
 
 type alias Date = Calendar.Date
 type alias Time = Clock.Time
+type alias DateTime = DateTime.DateTime
 
 -- PARSING
 
@@ -47,6 +53,29 @@ dateDecoder = int |> Decode.map millisToDate
 timeDecoder : Decoder Time
 timeDecoder = int |> Decode.map (millisToPosix >> Clock.fromPosix)
 
+utcTimeParser : Parser DateTime
+utcTimeParser =
+    let constructDateTime year month day hours minutes seconds = 
+            Array.get (month - 1) months
+            |> Maybe.andThen (\ parsedMonth ->
+                DateTime.fromRawParts
+                    { day = day, month = parsedMonth, year = year }
+                    { seconds = seconds, minutes = minutes, hours = hours, milliseconds = 0 })
+        intWithLeadingZeroes = succeed (\ x -> x) |. chompWhile (\ c -> c == '0') |= oneOf [Parser.int, succeed 0]
+     in succeed constructDateTime
+        |= intWithLeadingZeroes |. symbol "-"
+        |= intWithLeadingZeroes |. symbol "-"
+        |= intWithLeadingZeroes |. symbol "T"
+        |= intWithLeadingZeroes |. symbol ":"
+        |= intWithLeadingZeroes |. symbol ":"
+        |= intWithLeadingZeroes |. chompIf (\ c -> c == 'Z')
+        |> Parser.andThen (Maybe.unwrap (problem "Invalid date") succeed)
+
+utcTimeDecoder : Decoder DateTime
+utcTimeDecoder =
+    let parseUtcTime = Parser.run utcTimeParser >> Result.unpack (Debug.toString >> Decode.fail) Decode.succeed
+     in Decode.string |> Decode.andThen parseUtcTime
+
 -- FORMATTING
 
 formatTime : Time -> String
@@ -64,6 +93,9 @@ formatDate date =
     |> List.intersperse "-"
     |> String.concat
 
+formatDateTime : DateTime -> String
+formatDateTime dt = formatDate (DateTime.getDate dt) ++ " " ++ formatTime (DateTime.getTime dt)
+
 -- DATE CONTEXT UTILS
 
 times : Int -> (a -> a) -> a -> a
@@ -74,7 +106,7 @@ times n f a = case n of
 
 getWeekStart : Date -> Date
 getWeekStart date =
-    List.Extra.elemIndex (getWeekday date) weekdays
+    List.elemIndex (getWeekday date) weekdays
     |> Maybe.withDefault 0
     |> \ n -> times n decrementDay date
 
