@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Presentation.Meeting where
 
@@ -14,6 +15,10 @@ import Data.Time (UTCTime)
 import Integration.MeetingStore (storeMeeting, findMeetingById, updateAvailabilities)
 import Data.Aeson.Types (ToJSON(toJSON))
 import Utils.Endpoint (DBPool, withDB)
+import Database.Persist (selectList, (==.), Entity (..))
+import Integration.Init (EntityField(MeetingEntityUserId), MeetingEntity(..), AvailabilityEntity(..))
+import Database.Persist.Sql (toSqlKey)
+import Data.List (nub)
 
 data MeetingParams = MeetingParams {
     title :: Text,
@@ -114,3 +119,15 @@ getMeetingWithId pool = do
 
 availabilityParamsToAvailabilities :: UserId -> [AvailabilityParams] -> [Availability]
 availabilityParamsToAvailabilities uId = map (\ (AvailabilityParams s e) -> Availability s e uId)
+
+getOwnMeetings :: Sessions -> DBPool -> ResponderM a
+getOwnMeetings sessions pool = do
+  userId <- toSqlKey . fromIntegral <$> requireSession sessions
+  meetings <- withDB pool (selectList [MeetingEntityUserId ==. userId] [])
+  send $ status status200 $ json
+    [ object ["id" .= m.meetingEntityMeetingId, "noOfUsers" .= noOfUsers m, "title" .= m.meetingEntityTitle]
+    | Entity { entityVal = m } <- meetings
+    ]
+  where
+    noOfUsers :: MeetingEntity -> Int
+    noOfUsers m = length $ nub [a.availabilityEntityUserId | a <- m.meetingEntityAvailabilities]

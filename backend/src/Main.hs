@@ -10,7 +10,7 @@ import Presentation.Authentication (register, logout, login)
 import Presentation.User (getUserMe)
 import Presentation.Calendar (importUserCalendar)
 import Presentation.Occupancies (getUserOccupancies)
-import Presentation.Meeting (createMeeting, addAvailabilitiesToMeeting, getMeetingWithId)
+import Presentation.Meeting (createMeeting, addAvailabilitiesToMeeting, getMeetingWithId, getOwnMeetings)
 
 import Database.Persist.Sqlite (createSqlitePool)
 import Control.Monad.Logger (runNoLoggingT)
@@ -34,6 +34,7 @@ main = do
       , get "/logout" (logout sessions)
       , get "/occupancies" (getUserOccupancies sessions pool)
       , get "/meeting/:mId" (getMeetingWithId pool)
+      , get "/meeting" (getOwnMeetings sessions pool)
       ]
 
 missing :: ResponderM a
