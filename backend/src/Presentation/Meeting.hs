@@ -48,15 +48,15 @@ data AvailabilityParams = AvailabilityParams {
 data MeetingResponse = MeetingResponse {
   meetingId :: MeetingId,
   title :: Text,
-  start :: Text,
-  end :: Text,
+  start :: UTCTime,
+  end :: UTCTime,
   userId :: UserId,
   availabilities :: [AvailabilityResponse]
 }
 
 data AvailabilityResponse = AvailabilityResponse {
-  start :: Text,
-  end :: Text,
+  start :: UTCTime,
+  end :: UTCTime,
   userId :: UserId
 }
 
@@ -75,13 +75,13 @@ meetingToResponse :: Meeting -> MeetingResponse
 meetingToResponse (Meeting mId t s e uId as) = MeetingResponse 
   mId 
   t 
-  (pack $ show s) 
-  (pack $ show e)
+  s
+  e
   uId 
   (map availabilityToResponse as)
 
 availabilityToResponse :: Availability -> AvailabilityResponse
-availabilityToResponse (Availability s e uId) = AvailabilityResponse (pack $ show s) (pack $ show e) uId
+availabilityToResponse (Availability s e uId) = AvailabilityResponse s e uId
 
 createMeeting :: Sessions -> DBPool -> ResponderM a
 createMeeting sessions pool = do
