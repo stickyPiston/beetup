@@ -11,7 +11,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.UUID.V4 (nextRandom)
 import Data.Text (pack, Text)
 import Data.Aeson ((.=), (.:), FromJSON (parseJSON), withObject, object, ToJSON)
-import Data.Time (UTCTime)
+import Data.Time (UTCTime, formatTime, defaultTimeLocale)
 import Integration.MeetingStore (storeMeeting, findMeetingById, updateAvailabilities)
 import Data.Aeson.Types (ToJSON(toJSON))
 import Utils.Endpoint (DBPool, withDB)
@@ -23,7 +23,8 @@ import Data.List (nub)
 data MeetingParams = MeetingParams {
     title :: Text,
     start :: UTCTime,
-    end   :: UTCTime
+    end   :: UTCTime,
+    days  :: [UTCTime]
 }
 
 newtype MeetingIdParams = MeetingIdParams {
@@ -39,6 +40,7 @@ instance FromJSON MeetingParams where
     <$> o .: "title"
     <*> o .: "start"
     <*> o .: "end"
+    <*> o .: "days"
 
 data AvailabilityParams = AvailabilityParams {
   start :: UTCTime,
@@ -50,6 +52,7 @@ data MeetingResponse = MeetingResponse {
   title :: Text,
   start :: UTCTime,
   end :: UTCTime,
+  days :: [UTCTime],
   userId :: UserId,
   availabilities :: [AvailabilityResponse]
 }
@@ -64,7 +67,15 @@ instance ToJSON AvailabilityResponse where
   toJSON (AvailabilityResponse s e id) = object ["start" .= s, "end" .= e, "userId" .= id]
 
 instance ToJSON MeetingResponse where
-  toJSON (MeetingResponse mId t s e uId as) = object ["meetingId" .= mId, "title" .= t, "start" .= s, "end" .= e, "userId" .= uId, "availabilities" .= as]
+  toJSON (MeetingResponse mId t s e days uId as) = object
+    [ "id" .= mId
+    , "title" .= t
+    , "start" .= formatTime defaultTimeLocale "%T" s
+    , "end" .= formatTime defaultTimeLocale "%T" e
+    , "days" .= map (formatTime defaultTimeLocale "%F") days
+    , "userId" .= uId
+    , "availabilities" .= as
+    ]
 
 instance FromJSON AvailabilityParams where
   parseJSON = withObject "AvailabilityParams" $ \ o -> AvailabilityParams
@@ -72,11 +83,12 @@ instance FromJSON AvailabilityParams where
     <*> o .: "end"
 
 meetingToResponse :: Meeting -> MeetingResponse
-meetingToResponse (Meeting mId t s e uId as) = MeetingResponse 
+meetingToResponse (Meeting mId t s e days uId as) = MeetingResponse 
   mId 
   t 
   s
   e
+  days
   uId 
   (map availabilityToResponse as)
 
@@ -85,12 +97,12 @@ availabilityToResponse (Availability s e uId) = AvailabilityResponse s e uId
 
 createMeeting :: Sessions -> DBPool -> ResponderM a
 createMeeting sessions pool = do
-  MeetingParams title start end <- fromBody
+  MeetingParams title start end days <- fromBody
 
   uId <- requireSession sessions
   meetingId <- liftIO nextRandom
 
-  let meeting = Meeting (pack $ show meetingId) title start end uId []
+  let meeting = Meeting (pack $ show meetingId) title start end days uId []
   
   _ <- withDB pool $ storeMeeting meeting
 

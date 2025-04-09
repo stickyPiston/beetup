@@ -46,8 +46,9 @@ AvailabilityEntity
 MeetingEntity
   meetingId Text
   title Text
-  start UTCTime
-  end UTCTime
+  start UTCTime  -- Only the time component is used
+  end UTCTime    -- Only the time component is used
+  days [UTCTime] -- Only the date component is used
   userId UserEntityId
   availabilities [AvailabilityEntity]
   deriving (Show)
