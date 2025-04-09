@@ -21,10 +21,11 @@ import Database.Persist.Sql (toSqlKey)
 import Data.List (nub)
 
 data MeetingParams = MeetingParams {
-    title :: Text,
-    start :: UTCTime,
-    end   :: UTCTime,
-    days  :: [UTCTime]
+    title       :: Text,
+    start       :: UTCTime,
+    end         :: UTCTime,
+    days        :: [UTCTime],
+    description :: Text
 }
 
 newtype MeetingIdParams = MeetingIdParams {
@@ -41,6 +42,7 @@ instance FromJSON MeetingParams where
     <*> o .: "start"
     <*> o .: "end"
     <*> o .: "days"
+    <*> o .: "description"
 
 data AvailabilityParams = AvailabilityParams {
   start :: UTCTime,
@@ -54,6 +56,7 @@ data MeetingResponse = MeetingResponse {
   end :: UTCTime,
   days :: [UTCTime],
   userId :: UserId,
+  description :: Text,
   availabilities :: [AvailabilityResponse]
 }
 
@@ -67,7 +70,7 @@ instance ToJSON AvailabilityResponse where
   toJSON (AvailabilityResponse s e id) = object ["start" .= s, "end" .= e, "userId" .= id]
 
 instance ToJSON MeetingResponse where
-  toJSON (MeetingResponse mId t s e days uId as) = object
+  toJSON (MeetingResponse mId t s e days uId desc as) = object
     [ "id" .= mId
     , "title" .= t
     , "start" .= formatTime defaultTimeLocale "%T" s
@@ -75,6 +78,7 @@ instance ToJSON MeetingResponse where
     , "days" .= map (formatTime defaultTimeLocale "%F") days
     , "userId" .= uId
     , "availabilities" .= as
+    , "description" .= desc
     ]
 
 instance FromJSON AvailabilityParams where
@@ -83,13 +87,14 @@ instance FromJSON AvailabilityParams where
     <*> o .: "end"
 
 meetingToResponse :: Meeting -> MeetingResponse
-meetingToResponse (Meeting mId t s e days uId as) = MeetingResponse 
+meetingToResponse (Meeting mId t s e days uId desc as) = MeetingResponse 
   mId 
   t 
   s
   e
   days
   uId 
+  desc
   (map availabilityToResponse as)
 
 availabilityToResponse :: Availability -> AvailabilityResponse
@@ -97,12 +102,12 @@ availabilityToResponse (Availability s e uId) = AvailabilityResponse s e uId
 
 createMeeting :: Sessions -> DBPool -> ResponderM a
 createMeeting sessions pool = do
-  MeetingParams title start end days <- fromBody
+  MeetingParams title start end days desc <- fromBody
 
   uId <- requireSession sessions
   meetingId <- liftIO nextRandom
 
-  let meeting = Meeting (pack $ show meetingId) title start end days uId []
+  let meeting = Meeting (pack $ show meetingId) title start end days uId desc []
   
   _ <- withDB pool $ storeMeeting meeting
 

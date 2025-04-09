@@ -51,6 +51,7 @@ MeetingEntity
   days [UTCTime] -- Only the date component is used
   userId UserEntityId
   availabilities [AvailabilityEntity]
+  description Text
   deriving (Show)
 |]
 

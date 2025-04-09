@@ -68,16 +68,18 @@ meetingToEntity m = MeetingEntity
   (mDays m)
   (toSqlKey $ fromIntegral $ mUserId m) 
   (map availabilityToEntity $ mAvailabilities m)
+  (mDescription m)
 
 entityToMeeting :: Entity MeetingEntity -> Meeting
-entityToMeeting e = do
+entityToMeeting e =
   let val = entityVal e
-  let uId = fromSqlKey (meetingEntityUserId val)
-  Meeting
+      uId = fromSqlKey (meetingEntityUserId val)
+   in Meeting
     (meetingEntityMeetingId val)
     (meetingEntityTitle val)
     (meetingEntityStart val)
     (meetingEntityEnd val)
     (meetingEntityDays val)
     (fromIntegral uId)
+    (meetingEntityDescription val)
     (map entityToAvailability $ meetingEntityAvailabilities val)
