@@ -6,7 +6,7 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 
 test :: TestTree
-test = testProperty "Test" $ const True
+test = testProperty "Test" $ (const True :: Int -> Bool)
 
 -- smoothPermsProperties :: TestTree
 -- smoothPermsProperties = testGroup "Tree implementation properties" $

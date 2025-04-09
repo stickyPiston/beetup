@@ -21,21 +21,21 @@ library
   hs-source-dirs: lib
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends: base >=4.7 && <5
-               , iCalendar >= 0.4.1.1
                , bytestring
-               , time
-               , resource-pool
                , conduit
-               , monad-logger
-               , persistent
-               , twain
-               , mtl
-               , uuid
-               , text
                , containers
+               , data-default
+               , iCalendar >= 0.4.1.1
+               , monad-logger
+               , mtl
+               , persistent
                , persistent-sqlite
                , persistent-template
-               , data-default
+               , resource-pool
+               , text
+               , time
+               , twain
+               , uuid
   default-language: Haskell2010
 
 executable beetup-backend-exe
@@ -53,20 +53,20 @@ executable beetup-backend-exe
                       , ViewPatterns
                       , DuplicateRecordFields
     build-depends:      base ^>=4.17.2.0
-                      , beetup-backend
-                      , warp
                       , aeson
+                      , beetup-backend
+                      , containers
                       , http-types
+                      , monad-logger
+                      , password
                       , persistent
                       , persistent-sqlite
                       , persistent-template
-                      , password
-                      , uuid
                       , text
-                      , containers
-                      , twain
                       , time
-                      , monad-logger
+                      , twain
+                      , uuid
+                      , warp
     hs-source-dirs:     src
     default-language:   Haskell2010
 

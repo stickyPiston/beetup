@@ -1,6 +1,7 @@
-module HelperFunctions where
+module HelperFunctions (tally) where
 
-import Test.Tasty.QuickCheck
+-- import Test.Tasty.QuickCheck (Gen(..))
+import Data.List (group, sort)
 
 -- -- | Generates input data which scales slightly, to test the slow smoothPerms
 -- -- implementation which scales badly
