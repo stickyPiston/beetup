@@ -10,46 +10,63 @@ build-type:         Simple
 common warnings
     ghc-options: -Wall -Wno-name-shadowing
 
-executable beetup-backend
+library
+  exposed-modules:
+      Availability
+      Availability.Parse
+      Utils.Datatypes
+      Utils.Endpoint
+      Utils.Functions
+      Utils.DbInit
+  hs-source-dirs: lib
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends: base >=4.7 && <5
+               , iCalendar >= 0.4.1.1
+               , bytestring
+               , time
+               , resource-pool
+               , conduit
+               , monad-logger
+               , persistent
+               , twain
+               , mtl
+               , uuid
+               , text
+               , containers
+               , persistent-sqlite
+               , persistent-template
+               , data-default
+  default-language: Haskell2010
+
+executable beetup-backend-exe
     import:             warnings
     main-is:            Main.hs
     other-modules:      Integration.UserStore
                       , Integration.OccupancyStore
                       , Integration.MeetingStore
-                      , Integration.Init
-                      , Utils.Datatypes
-                      , Utils.Functions
-                      , Utils.Endpoint
                       , Presentation.Authentication
                       , Presentation.User
                       , Presentation.Calendar
                       , Presentation.Occupancies
                       , Presentation.Meeting
-                      , Core.Availability
-                      , Core.Availability.Parse
     default-extensions: OverloadedStrings
                       , ViewPatterns
                       , DuplicateRecordFields
     build-depends:      base ^>=4.17.2.0
-                      , twain
+                      , beetup-backend
                       , warp
-                      , text
-                      , containers
                       , aeson
                       , http-types
                       , persistent
                       , persistent-sqlite
                       , persistent-template
-                      , time
-                      , mtl
                       , password
                       , uuid
-                      , iCalendar >= 0.4.1.1
-                      , bytestring
-                      , data-default
+                      , text
+                      , containers
+                      , twain
+                      , time
                       , monad-logger
-                      , resource-pool
-                      , conduit
     hs-source-dirs:     src
     default-language:   Haskell2010
 

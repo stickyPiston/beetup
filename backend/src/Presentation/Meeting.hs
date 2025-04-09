@@ -16,7 +16,7 @@ import Integration.MeetingStore (storeMeeting, findMeetingById, updateAvailabili
 import Data.Aeson.Types (ToJSON(toJSON))
 import Utils.Endpoint (DBPool, withDB)
 import Database.Persist (selectList, (==.), Entity (..))
-import Integration.Init (EntityField(MeetingEntityUserId), MeetingEntity(..), AvailabilityEntity(..))
+import Utils.DbInit (EntityField(MeetingEntityUserId), MeetingEntity(..), AvailabilityEntity(..))
 import Database.Persist.Sql (toSqlKey)
 import Data.List (nub)
 

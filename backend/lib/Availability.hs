@@ -1,4 +1,4 @@
-module Core.Availability (determineAvailabilites, timeSlots) where
+module Availability (determineAvailabilites, timeSlots) where
 
 import Data.Time (UTCTime, NominalDiffTime, addUTCTime)
 import Data.List (sort)
