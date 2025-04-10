@@ -66,20 +66,20 @@ meetingToEntity m = MeetingEntity
   (mStart m) 
   (mEnd m) 
   (mDays m)
-  (toSqlKey $ fromIntegral $ mUserId m) 
+  (map (toSqlKey . fromIntegral) $ mUserIds m) 
   (map availabilityToEntity $ mAvailabilities m)
   (mDescription m)
 
 entityToMeeting :: Entity MeetingEntity -> Meeting
 entityToMeeting e =
   let val = entityVal e
-      uId = fromSqlKey (meetingEntityUserId val)
+      uIds = map (fromIntegral . fromSqlKey) (meetingEntityUserIds val)
    in Meeting
     (meetingEntityMeetingId val)
     (meetingEntityTitle val)
     (meetingEntityStart val)
     (meetingEntityEnd val)
     (meetingEntityDays val)
-    (fromIntegral uId)
+    uIds
     (meetingEntityDescription val)
     (map entityToAvailability $ meetingEntityAvailabilities val)

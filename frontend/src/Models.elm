@@ -7,7 +7,7 @@ import Json.Decode as Decode exposing (Decoder, string, list, int)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode as Encode
 
-import Utils.DateTime exposing (dateDecoder, timeDecoder, compareDateTime, utcTimeDecoder, dateEncoder)
+import Utils.DateTime exposing (dateDecoder, timeDecoder, compareDateTime, utcTimeDecoder)
 import DateTime exposing (getDate, getTime)
 import Utils.DateTime exposing (datetimeEncoder)
 
@@ -34,7 +34,7 @@ type alias Meeting =
     , days : List Date
     , title : String
     , description : String
-    , userId : String
+    , userIds : List String
     }
 
 type alias User =
@@ -53,7 +53,7 @@ meetingDecoder = Decode.succeed Meeting
     |> required "days" (list dateDecoder)
     |> required "title" string
     |> required "description" string
-    |> required "userId" (int |> Decode.map String.fromInt)
+    |> required "userIds" (list int |> Decode.map (List.map String.fromInt))
 
 availabilityDecoder : Decoder Availability
 availabilityDecoder =

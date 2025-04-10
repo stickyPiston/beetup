@@ -49,7 +49,7 @@ MeetingEntity
   start UTCTime  -- Only the time component is used
   end UTCTime    -- Only the time component is used
   days [UTCTime] -- Only the date component is used
-  userId UserEntityId
+  userIds [UserEntityId]
   availabilities [AvailabilityEntity]
   description Text
   deriving (Show)

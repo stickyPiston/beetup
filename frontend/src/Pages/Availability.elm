@@ -26,6 +26,7 @@ type alias Model =
     , endTime : Time
     , id : String
     , error : Maybe String
+    , isOwn : Bool
     }
 
 init : String -> (Model, Cmd Msg)
@@ -35,6 +36,7 @@ init id =
       , endTime = midnight
       , id = id
       , error = Nothing
+      , isOwn = True
       }
     , Http.get
         { url = "http://localhost:8001/meeting/" ++ id
@@ -57,6 +59,8 @@ type Msg
     | GotMeeting (Result Http.Error Meeting)
     | SubmitAvailabilities
     | SubmittedAvailabilities (Result Http.Error ())
+    | AddMeetingToOwnMeetings
+    | AddedMeetingToOwnMeetings (Result Http.Error ())
 
 update : User -> Msg -> Model -> (Model, Cmd Msg)
 update user msg model =
@@ -105,6 +109,7 @@ update user msg model =
                   | startTime = meeting.start
                   , endTime = meeting.end
                   , days = parsedDaysDict
+                  , isOwn = List.member user.id meeting.userIds
                   }
                 , Cmd.none
                 )
@@ -127,6 +132,16 @@ update user msg model =
                 Nothing -> ({ model | error = Just "Not all availabilities have been correctly filled out" }, Cmd.none)
         SubmittedAvailabilities (Err _) -> ({ model | error = Just "Could not submit availabilities" }, Cmd.none)
         SubmittedAvailabilities (Ok _) -> ({ model | error = Nothing }, Cmd.none)
+        AddMeetingToOwnMeetings ->
+            ( model
+            , Http.post
+                { url = "http://localhost:8001/meeting/" ++ model.id ++ "/addUser"
+                , body = Http.emptyBody
+                , expect = Http.expectWhatever AddedMeetingToOwnMeetings
+                }
+            )
+        AddedMeetingToOwnMeetings (Err _) -> ({ model | error = Just "Could not add meeting to your meetings" }, Cmd.none)
+        AddedMeetingToOwnMeetings (Ok _) -> ({ model | error = Nothing, isOwn = True }, Cmd.none)
 
 -- VIEW
 
@@ -134,9 +149,13 @@ view : Model -> List (Html Msg)
 view model =
     let viewedDays = model.days |> List.indexedMap (viewDay model.startTime model.endTime)
         viewContent = button [onClick SubmitAvailabilities] [text "Submit"] :: viewedDays
-     in case model.error of
-        Just error -> p [] [text error] :: viewContent
-        Nothing -> viewContent
+        viewError = case model.error of
+            Just error -> [p [] [text error]]
+            Nothing -> []
+        viewAddButton = if model.isOwn
+            then []
+            else [button [onClick AddMeetingToOwnMeetings] [text "Add to your meetings"]]
+     in viewError ++ viewAddButton ++ viewContent
 
 viewDay : Time -> Time -> Int -> (Date, List AvailabilityDraft) -> Html Msg
 viewDay startTime endTime dayidx (day, availabilities) =
