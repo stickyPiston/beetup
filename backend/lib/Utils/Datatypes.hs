@@ -6,7 +6,7 @@ import qualified Data.Map as M
 import Data.UUID (UUID)
 import Data.Time.Clock (UTCTime, NominalDiffTime, secondsToNominalDiffTime, addUTCTime, diffUTCTime)
 import Control.Monad (liftM2)
-import Data.Text
+import Data.Text (Text)
 
 type Sessions = IORef (M.Map UUID Int)
 

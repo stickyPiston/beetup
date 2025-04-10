@@ -1,9 +1,8 @@
 import Test.Tasty
 import Test.Tasty.QuickCheck
-import qualified AvailabilityTests
+
+import TimeSlotTests
 
 main :: IO ()
-main = defaultMain tests
-
-tests :: TestTree
-tests = testGroup "Availability tests" [AvailabilityTests.test]
+main = defaultMain $ testGroup "All tests" $
+    [timeSlotTests]

@@ -1,16 +1,33 @@
-module AvailabilityTests (test) where
+module TimeSlotTests (timeSlotTests) where
 
-import HelperFunctions
+import HelperFunctions (halfHour, steps)
+import Availability (timeSlots)
+import Utils.Datatypes (earlier, overlaps, valid)
+import Arbitraries()
+import Generators
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
-test :: TestTree
-test = testProperty "Test" $ (const True :: Int -> Bool)
+timeSlotTests :: TestTree
+timeSlotTests = testGroup "Tests generation of timeslots between given timestamps" $
+    [timeSlotsValid, timeSlotsDoNotOverlap, timeSlotsAreOrdered]
 
--- smoothPermsProperties :: TestTree
--- smoothPermsProperties = testGroup "Tree implementation properties" $
---   [isSmooth, preservedContents, preservedLength, samePermsAsSlow, sameSmoothPermsAsSlow]
+timeSlotsValid :: TestTree
+timeSlotsValid = testProperty "TimeSlots are valid" $ forAll (genTimeStampsInOrder halfHour) $ \ts ->
+    let slots = timeSlots halfHour (ts !! 0) (ts !! 1)
+    in all valid slots
+
+timeSlotsDoNotOverlap :: TestTree
+timeSlotsDoNotOverlap = testProperty "TimeSlots do not overlap" $ forAll (genTimeStampsInOrder halfHour) $ \ts ->
+    let slots = timeSlots halfHour (ts !! 0) (ts !! 1)
+    in all (not . uncurry overlaps) $ steps slots
+
+timeSlotsAreOrdered :: TestTree
+timeSlotsAreOrdered = testProperty "TimeSlots are in order" $ forAll (genTimeStampsInOrder halfHour) $ \ts ->
+    let slots = timeSlots halfHour (ts !! 0) (ts !! 1)
+    in all (uncurry earlier) $ steps slots
+
 
 -- isSmooth :: TestTree
 -- isSmooth = testProperty "Permutations are smooth" $ forAll genPermutationArguments $ \(d, xs) ->
