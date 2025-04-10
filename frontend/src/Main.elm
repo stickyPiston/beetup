@@ -77,7 +77,14 @@ type Msg
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model = case (msg, model.currentPage) of
-    (OnUrlChange url, _) -> ({ model | currentRoute = routeFromUrl url }, Cmd.none)
+    (OnUrlChange url, _) ->
+        let currentRoute = routeFromUrl url
+            (currentPage, cmd) = newPageFromRoute currentRoute
+         in ( { model
+            | currentRoute = currentRoute
+            , currentPage = currentPage
+            }
+        , cmd)
     (OnUrlRequest request, _) -> case request of
         Internal url -> (model, Nav.pushUrl model.navKey (Url.toString url))
         External url -> (model, Nav.load url)
