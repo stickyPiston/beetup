@@ -1,6 +1,6 @@
 module Pages.Availability exposing (..)
 
-import Html exposing (Html, div, text, h2, input, button)
+import Html exposing (Html, div, text, h2, input, button, p)
 import Html.Attributes as A exposing (type_, value)
 import Html.Events exposing (onClick, onInput)
 
@@ -25,6 +25,7 @@ type alias Model =
     , startTime : Time
     , endTime : Time
     , id : String
+    , error : Maybe String
     }
 
 init : String -> (Model, Cmd Msg)
@@ -33,6 +34,7 @@ init id =
       , startTime = midnight
       , endTime = midnight
       , id = id
+      , error = Nothing
       }
     , Http.get
         { url = "http://localhost:8001/meeting/" ++ id
@@ -122,16 +124,19 @@ update user msg model =
                         , body = Http.jsonBody (Encode.list availabilityEncoder availabilities)
                         }
                     )
-                Nothing -> Debug.todo ""
-        SubmittedAvailabilities (Err _) -> (Debug.todo "", Cmd.none)
-        SubmittedAvailabilities (Ok _) -> (model, Cmd.none)
+                Nothing -> ({ model | error = Just "Not all availabilities have been correctly filled out" }, Cmd.none)
+        SubmittedAvailabilities (Err _) -> ({ model | error = Just "Could not submit availabilities" }, Cmd.none)
+        SubmittedAvailabilities (Ok _) -> ({ model | error = Nothing }, Cmd.none)
 
 -- VIEW
 
 view : Model -> List (Html Msg)
 view model =
-    let viewedDays   = model.days |> List.indexedMap (viewDay model.startTime model.endTime)
-     in button [onClick SubmitAvailabilities] [text "Submit"] :: viewedDays
+    let viewedDays = model.days |> List.indexedMap (viewDay model.startTime model.endTime)
+        viewContent = button [onClick SubmitAvailabilities] [text "Submit"] :: viewedDays
+     in case model.error of
+        Just error -> p [] [text error] :: viewContent
+        Nothing -> viewContent
 
 viewDay : Time -> Time -> Int -> (Date, List AvailabilityDraft) -> Html Msg
 viewDay startTime endTime dayidx (day, availabilities) =
