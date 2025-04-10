@@ -119,12 +119,8 @@ addAvailabilitiesToMeeting sessions pool = do
   mId <- param "mId"
   (availabilityParamsToAvailabilities uId -> bodyAps) <- fromBody
 
-  withDB pool (findMeetingById mId) >>= \case
-    Nothing -> send $ status status400 $ text "No such meeting"
-    Just Meeting { mAvailabilities } ->
-      withDB pool (updateAvailabilities mId (mAvailabilities ++ bodyAps)) >>= \case
-        Nothing -> send $ status status400 $ text "Couldn't fetch updated meeting"  
-        Just _ -> send $ status status200 $ text "Done."
+  withDB pool (updateAvailabilities mId uId bodyAps)
+  send $ status status200 $ text "Done."
 
 getMeetingWithId :: DBPool -> ResponderM a
 getMeetingWithId pool = do

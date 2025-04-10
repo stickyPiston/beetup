@@ -7,7 +7,7 @@ import Browser.Navigation as Nav exposing (Key)
 import Html exposing (text)
 
 import Url exposing (Url)
-import Url.Parser exposing (Parser, s, top, int, (</>), map, oneOf, parse)
+import Url.Parser exposing (Parser, s, top, string, (</>), map, oneOf, parse)
 
 import Pages.Login as Login
 import Pages.Home as Home
@@ -29,39 +29,43 @@ main = Browser.application
 
 -- MODEL
 
+type Page
+    = LoginPage Login.Model
+    | MeetingPage Meeting.Model
+    | AvailabilityPage Availability.Model
+    | HomePage Home.Model
+    | NotFoundPage
+
 type alias Model =
     { navKey : Key
     , currentRoute : Route
-    , loginModel : Login.Model
-    , meetingModel : Meeting.Model
-    , availabilityModel : Availability.Model
-    , homeModel : Home.Model
+    , currentPage : Page
     , user : Maybe User
     }
 
 init : Decode.Value -> Url -> Key -> (Model, Cmd Msg)
 init flag url key =
-    let user = Decode.decodeValue userDecoder flag
-            |> Result.toMaybe
-        (meetingModel, meetingCmd) = Meeting.init
-        (homeModel, homeCmd) = Home.init
-        model =
-            { navKey = key
-            , currentRoute = routeFromUrl url
-            , loginModel = Login.init
-            , availabilityModel = Availability.init user
-            , meetingModel = meetingModel
-            , homeModel = homeModel
-            , user = user
-            }
-     in ( model
-        , Cmd.batch
-            [ Cmd.map MeetingMsg meetingCmd
-            , Cmd.map HomeMsg homeCmd
-            ]
-        )
+    let user = Decode.decodeValue userDecoder flag |> Result.toMaybe
+        currentRoute = routeFromUrl url
+        (currentPage, cmd) = newPageFromRoute currentRoute
+        model = { navKey = key , currentRoute = currentRoute , currentPage = currentPage , user = user }
+     in (model, cmd)
 
 -- UPDATE
+
+newPageFromRoute : Route -> (Page, Cmd Msg)
+newPageFromRoute route = case route of
+        Home ->
+            let (model, cmd) = Home.init
+             in (HomePage model, Cmd.map HomeMsg cmd)
+        Meeting ->
+            let (model, cmd) = Meeting.init
+             in (MeetingPage model, Cmd.map MeetingMsg cmd)
+        Availability id ->
+            let (model, cmd) = Availability.init id
+             in (AvailabilityPage model, Cmd.map AvailabilityMsg cmd)
+        Login -> (LoginPage Login.init, Cmd.none)
+        NotFound _ -> (NotFoundPage, Cmd.none)
 
 type Msg
     = OnUrlChange Url
@@ -72,42 +76,50 @@ type Msg
     | MeetingMsg Meeting.Msg
 
 update : Msg -> Model -> (Model, Cmd Msg)
-update msg model = case msg of
-    OnUrlChange url -> ({ model | currentRoute = routeFromUrl url } , Cmd.none)
-    OnUrlRequest request -> case request of
+update msg model = case (msg, model.currentPage) of
+    (OnUrlChange url, _) -> ({ model | currentRoute = routeFromUrl url }, Cmd.none)
+    (OnUrlRequest request, _) -> case request of
         Internal url -> (model, Nav.pushUrl model.navKey (Url.toString url))
         External url -> (model, Nav.load url)
-    LoginMsg (Login.GotUser response as lmsg) ->
-        let (newLoginModel, cmd) = Login.update model.navKey lmsg model.loginModel
-            loginResponse = ({ model | loginModel = newLoginModel }, Cmd.map LoginMsg cmd)
+    (LoginMsg (Login.GotUser response as lmsg), page) ->
+        let loginResponse = case page of
+                LoginPage loginModel -> Login.update model.navKey lmsg loginModel 
+                    |> Tuple.mapBoth LoginPage (Cmd.map LoginMsg)
+                _ -> (page, Cmd.none)
+            returned = Tuple.mapFirst (\ p -> { model | currentPage = p }) loginResponse
          in case response of
-            Err _ -> loginResponse
-            Ok user -> Tuple.mapFirst (\ newModel -> { newModel | user = Just user }) loginResponse
-    LoginMsg lmsg ->
-        let (newModel, cmd) = Login.update model.navKey lmsg model.loginModel
-         in ({ model | loginModel = newModel }, Cmd.map LoginMsg cmd)
-    HomeMsg hmsg ->
-        let (newHomeModel, cmd) = Home.update hmsg model.homeModel
-            updateResponse = ({ model | homeModel = newHomeModel }, Cmd.map HomeMsg cmd)
+            Err _ -> returned
+            Ok user -> Tuple.mapFirst (\ m -> { m | user = Just user }) returned
+    (LoginMsg lmsg, LoginPage loginModel) ->
+        let (newPage, cmd) = Login.update model.navKey lmsg loginModel
+         in ({ model | currentPage = LoginPage newPage }, Cmd.map LoginMsg cmd)
+    (HomeMsg hmsg, HomePage homeModel) ->
+        let (newHomeModel, cmd) = Home.update hmsg homeModel
+            updateResponse = ({ model | currentPage = HomePage newHomeModel }, Cmd.map HomeMsg cmd)
          in case hmsg of
             Home.LoggedOut _ -> Tuple.mapFirst (\ newModel -> { newModel | user = Nothing }) updateResponse
             _ -> updateResponse
-    AvailabilityMsg cmsg ->
-        let (newModel, cmd) = Availability.update cmsg model.availabilityModel
-         in ({ model | availabilityModel = newModel }, Cmd.map AvailabilityMsg cmd)
-    MeetingMsg mmsg ->
-        let (newModel, cmd) = Meeting.update mmsg model.meetingModel
-         in ({ model | meetingModel = newModel }, Cmd.map MeetingMsg cmd)
+    (AvailabilityMsg cmsg, AvailabilityPage availModel) -> case model.user of
+        Just user ->
+            let (newModel, cmd) = Availability.update user cmsg availModel
+            in ({ model | currentPage = AvailabilityPage newModel }, Cmd.map AvailabilityMsg cmd)
+        Nothing -> (model, Cmd.none) -- Impossible
+    (MeetingMsg mmsg, MeetingPage meetingModel) ->
+        let (newModel, cmd) = Meeting.update mmsg meetingModel
+         in ({ model | currentPage = MeetingPage newModel }, Cmd.map MeetingMsg cmd)
+    -- If a message is received but the page that requested it is already swapped out,
+    -- then just ignore the message.
+    (_, _) -> (model, Cmd.none)
 
 view : Model -> Document Msg
 view model =
     { title = "Elm"
-    , body = case model.currentRoute of
-        Home -> Home.view model.user model.homeModel |> List.map (Html.map HomeMsg)
-        Meeting -> Meeting.view model.meetingModel |> List.map (Html.map MeetingMsg)
-        Availability id -> Availability.view model.availabilityModel |> List.map (Html.map AvailabilityMsg)
-        Login -> Login.view model.loginModel |> List.map (Html.map LoginMsg)
-        NotFound _ -> [text "Not found"]
+    , body = case model.currentPage of
+        HomePage homeModel -> Home.view model.user homeModel |> List.map (Html.map HomeMsg)
+        MeetingPage meetingModel -> Meeting.view meetingModel |> List.map (Html.map MeetingMsg)
+        AvailabilityPage availModel -> Availability.view availModel |> List.map (Html.map AvailabilityMsg)
+        LoginPage loginModel -> Login.view loginModel |> List.map (Html.map LoginMsg)
+        NotFoundPage -> [text "Not found"]
     }
 
 -- ROUTES
@@ -115,7 +127,7 @@ view model =
 type Route
     = Home
     | Meeting
-    | Availability Int
+    | Availability String
     | Login
     | NotFound Url
 
@@ -123,7 +135,7 @@ routeParser : Parser (Route -> a) a
 routeParser = oneOf
     [ map Home top
     , map Meeting (s "meeting")
-    , map Availability (s "availability" </> int)
+    , map Availability (s "availability" </> string)
     , map Login (s "login")
     ]
 

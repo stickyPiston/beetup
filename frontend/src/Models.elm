@@ -1,21 +1,23 @@
 module Models exposing (..)
 
-import Dict exposing (Dict)
 import Calendar exposing (Date)
 import Clock exposing (Time)
 
-import Json.Decode as Decode exposing (Decoder, string, list, dict)
+import Json.Decode as Decode exposing (Decoder, string, list, int)
 import Json.Decode.Pipeline exposing (required)
+import Json.Encode as Encode
 
-import Utils.DateTime exposing (dateDecoder, timeDecoder)
+import Utils.DateTime exposing (dateDecoder, timeDecoder, compareDateTime, utcTimeDecoder, dateEncoder)
+import DateTime exposing (getDate, getTime)
+import Utils.DateTime exposing (datetimeEncoder)
 
 -- DATA TYPES
 
 type alias Availability =
-    { id : String
-    , date : Date
+    { date : Date
     , startTime : Time
     , endTime : Time
+    , userId : String
     }
 
 type alias Occupancy = Availability
@@ -26,12 +28,13 @@ type AvailabilityTimeType
 
 type alias Meeting =
     { id : String
-    , availabilities : Dict String (List Availability)
-    , startTime : Time
-    , endTime : Time
+    , availabilities : List Availability
+    , start : Time
+    , end : Time
     , days : List Date
     , title : String
     , description : String
+    , userId : String
     }
 
 type alias User =
@@ -44,19 +47,38 @@ type alias User =
 meetingDecoder : Decoder Meeting
 meetingDecoder = Decode.succeed Meeting
     |> required "id" string
-    |> required "availabilities" (dict (list availabilityDecoder))
-    |> required "startTime" timeDecoder
-    |> required "endTime" timeDecoder
+    |> required "availabilities" (list availabilityDecoder)
+    |> required "start" timeDecoder
+    |> required "end" timeDecoder
     |> required "days" (list dateDecoder)
     |> required "title" string
     |> required "description" string
+    |> required "userId" (int |> Decode.map String.fromInt)
 
 availabilityDecoder : Decoder Availability
-availabilityDecoder = Decode.succeed Availability
-    |> required "id" string
-    |> required "date" dateDecoder
-    |> required "startTime" timeDecoder
-    |> required "endTime" timeDecoder
+availabilityDecoder =
+    let createAvailability ({ start, end, userId }) = case compareDateTime start end of
+            EQ -> Decode.succeed
+                      { startTime = getTime start
+                      , endTime = getTime end
+                      , userId = String.fromInt userId
+                      , date = getDate start
+                      }
+            _  -> Decode.fail "Dates of start and end time not equal"
+     in Decode.succeed (\ start end userId -> { start = start, end = end, userId = userId })
+        |> required "start" utcTimeDecoder
+        |> required "end" utcTimeDecoder
+        |> required "userId" int
+        |> Decode.andThen createAvailability
+
+availabilityEncoder : Availability -> Encode.Value
+availabilityEncoder { date, startTime, endTime } =
+    let startDatetime = DateTime.fromDateAndTime date startTime
+        endDatetime = DateTime.fromDateAndTime date endTime
+     in Encode.object
+        [ ("start", datetimeEncoder startDatetime)
+        , ("end", datetimeEncoder endDatetime)
+        ]
 
 userDecoder : Decoder User
 userDecoder = Decode.succeed User

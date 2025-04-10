@@ -29,7 +29,7 @@ main = do
       , post "/register" (register pool)
       , post "/calendar" (importUserCalendar sessions pool)
       , post "/meeting" (createMeeting sessions pool)
-      , put  "/meeting/:mId" (addAvailabilitiesToMeeting sessions pool)
+      , post  "/meeting/:mId" (addAvailabilitiesToMeeting sessions pool)
       , get "/user" (getUserMe sessions pool)
       , get "/logout" (logout sessions)
       , get "/occupancies" (getUserOccupancies sessions pool)

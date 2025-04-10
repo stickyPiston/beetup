@@ -3,15 +3,17 @@ module Utils.DateTime exposing
     , parseDate, parseTime
     , dateDecoder, timeDecoder
     , utcTimeParser, utcTimeDecoder
+    , dateEncoder, timeEncoder, datetimeEncoder
     , formatDate, formatTime, formatDateTime
     , getWeekStart
     , incrementDays, decrementDays
     , millisToDate
     , weekdays
+    , compareDate, compareDateTime
     )
 
 import Calendar exposing (Date, months, getDay, getMonth, monthToInt, getYear, getWeekday, decrementDay, incrementDay)
-import Clock exposing (Time, getHours, getMinutes)
+import Clock exposing (Time, getHours, getMinutes, getSeconds, midnight)
 import Time exposing (millisToPosix, Weekday(..))
 import DateTime
 
@@ -22,7 +24,8 @@ import List.Extra as List
 import Result.Extra as Result
 import Array
 
-import Json.Decode as Decode exposing (Decoder, int)
+import Json.Decode as Decode exposing (Decoder, string)
+import Json.Encode as Encode
 
 -- RE-EXPORTED TYPE ALIASES
 
@@ -48,10 +51,12 @@ parseTime input = case String.split ":" input |> Maybe.traverse String.toInt of
     _ -> Nothing
 
 dateDecoder : Decoder Date
-dateDecoder = int |> Decode.map millisToDate
+dateDecoder = string
+    |> Decode.andThen (parseDate >> Maybe.unwrap (Decode.fail "") Decode.succeed)
 
 timeDecoder : Decoder Time
-timeDecoder = int |> Decode.map (millisToPosix >> Clock.fromPosix)
+timeDecoder = string
+    |> Decode.andThen (parseTime >> Maybe.unwrap (Decode.fail "") Decode.succeed)
 
 utcTimeParser : Parser DateTime
 utcTimeParser =
@@ -61,7 +66,9 @@ utcTimeParser =
                 DateTime.fromRawParts
                     { day = day, month = parsedMonth, year = year }
                     { seconds = seconds, minutes = minutes, hours = hours, milliseconds = 0 })
-        intWithLeadingZeroes = succeed (\ x -> x) |. chompWhile (\ c -> c == '0') |= oneOf [Parser.int, succeed 0]
+        intWithLeadingZeroes = succeed (\ x -> x)
+            |. chompWhile (\ c -> c == '0')
+            |= oneOf [Parser.int, succeed 0]
      in succeed constructDateTime
         |= intWithLeadingZeroes |. symbol "-"
         |= intWithLeadingZeroes |. symbol "-"
@@ -76,20 +83,31 @@ utcTimeDecoder =
     let parseUtcTime = Parser.run utcTimeParser >> Result.unpack (Debug.toString >> Decode.fail) Decode.succeed
      in Decode.string |> Decode.andThen parseUtcTime
 
+dateEncoder : Date -> Encode.Value
+dateEncoder = formatDate >> Encode.string
+
+timeEncoder : Time -> Encode.Value
+timeEncoder = formatTime >> Encode.string
+
+datetimeEncoder : DateTime -> Encode.Value
+datetimeEncoder datetime =
+    let encodedDate = formatDate (DateTime.getDate datetime)
+        encodedTime = formatTime (DateTime.getTime datetime)
+     in Encode.string (encodedDate ++ "T" ++ encodedTime ++ "Z")
+
 -- FORMATTING
 
 formatTime : Time -> String
 formatTime time =
-    let formatNumber s = if String.length s == 1 then "0" ++ s else s
-     in [getHours time, getMinutes time]
-        |> List.map (String.fromInt >> formatNumber)
-        |> List.intersperse ":"
-        |> String.concat
+    [getHours time, getMinutes time, getSeconds time]
+    |> List.map (String.fromInt >> String.padLeft 2 '0')
+    |> List.intersperse ":"
+    |> String.concat
 
 formatDate : Date -> String
 formatDate date =
-    [getDay date, getMonth date |> monthToInt, getYear date]
-    |> List.map String.fromInt
+    [getYear date, getMonth date |> monthToInt, getDay date]
+    |> List.map (String.fromInt >> String.padLeft 2 '0')
     |> List.intersperse "-"
     |> String.concat
 
@@ -125,3 +143,9 @@ millisToDate = millisToPosix >> Calendar.fromPosix
 
 weekdays : List Weekday
 weekdays = [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+
+compareDate : Date -> Date -> Order
+compareDate a b = DateTime.compareDates (DateTime.fromDateAndTime a midnight) (DateTime.fromDateAndTime b midnight)
+
+compareDateTime : DateTime -> DateTime -> Order
+compareDateTime = DateTime.compareDates
