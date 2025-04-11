@@ -1,4 +1,4 @@
-To run the frontend, run the following commands:
+To run the frontend, run the following commands. You need to have nix installed. You can also install elm and elm-live manually via npm if you do not have nix installed.
 
 ```bash
 nix-shell
