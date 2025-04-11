@@ -46,7 +46,7 @@ data Meeting = Meeting { mId             :: MeetingId
                        , mStart          :: UTCTime
                        , mEnd            :: UTCTime
                        , mDays           :: [UTCTime] 
-                       , mUserId         :: UserId
+                       , mUserIds        :: [UserId]
                        , mDescription    :: Text
                        , mAvailabilities :: [Availability]
                        } deriving (Show)

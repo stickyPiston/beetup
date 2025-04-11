@@ -1,45 +1,52 @@
 module Pages.Availability exposing (..)
 
-import Html exposing (Html, div, text, h2, input, button, form, label)
+import Html exposing (Html, div, text, h2, input, button, p)
 import Html.Attributes as A exposing (type_, value)
-import Html.Events exposing (onClick, onSubmit, onInput)
-
-import Dict exposing (Dict)
+import Html.Events exposing (onClick, onInput)
 
 import Clock exposing (midnight)
-import Calendar
-import Utils.DateTime exposing (Time, Date, parseDate, parseTime, formatDate, formatTime, millisToDate)
-import Models exposing (AvailabilityTimeType(..), User)
+import Utils.DateTime exposing (Time, Date, parseTime, formatDate, formatTime, compareDate)
+import Models exposing (AvailabilityTimeType(..), User, Meeting, meetingDecoder, availabilityEncoder)
 
 import Maybe.Extra as Maybe
 import List.Extra as List
+import Http
+import Json.Encode as Encode
+import Models exposing (MaximumAttendancy)
+import Utils.DateTime exposing (formatDateTime)
 
 -- MODEL
 
 type alias AvailabilityDraft =
-    { date : Int
-    , startTime : Maybe Time
+    { startTime : Maybe Time
     , endTime : Maybe Time
     }
 
 type alias Model =
-    { days : Dict Int (List AvailabilityDraft)
+    { days : List (Date, List AvailabilityDraft)
     , startTime : Time
     , endTime : Time
-    , dateField : Maybe Date
-    , attendeeName : String
-    , attendeeEmail : String
+    , id : String
+    , error : Maybe String
+    , isOwn : Bool
+    , maximumAttendancy : Maybe MaximumAttendancy
     }
 
-init : Maybe User -> Model
-init user =
-    { days = Dict.empty
-    , startTime = midnight
-    , endTime = midnight
-    , dateField = Nothing
-    , attendeeName = Maybe.unwrap "" (\ u -> u.name) user 
-    , attendeeEmail = Maybe.unwrap "" (\ u -> u.id) user 
-    }
+init : String -> (Model, Cmd Msg)
+init id =
+    ( { days = []
+      , startTime = midnight
+      , endTime = midnight
+      , id = id
+      , error = Nothing
+      , isOwn = True
+      , maximumAttendancy = Nothing
+      }
+    , Http.get
+        { url = "http://localhost:8001/meeting/" ++ id
+        , expect = Http.expectJson GotMeeting meetingDecoder
+        }
+    )
 
 -- UPDATE
 
@@ -49,97 +56,148 @@ type AttendeeInfoType
 
 type Msg
     = AddAvailability Int
-    | AddDay
-    | DateChanged String
     -- AvailabilityTimeChanged type_ day idx value will update the availability on day at index idx
     -- to the time represented by value if it parses to a valid time.
     | AvailabilityTimeChanged AvailabilityTimeType Int Int String
     | DeleteAvailability Int Int
-    | AttendeeInfoChanged AttendeeInfoType String
+    | GotMeeting (Result Http.Error Meeting)
+    | SubmitAvailabilities
+    | SubmittedAvailabilities (Result Http.Error ())
+    | AddMeetingToOwnMeetings
+    | AddedMeetingToOwnMeetings (Result Http.Error ())
 
-update : Msg -> Model -> (Model, Cmd Msg)
-update msg model =
+update : User -> Msg -> Model -> (Model, Cmd Msg)
+update user msg model =
     let unchanged = (model, Cmd.none)
-        newAvailability day = AvailabilityDraft day Nothing Nothing
+        newAvailability = AvailabilityDraft Nothing Nothing
      in case msg of
-        AddAvailability day ->
-            let updateDay availability dictEntry =
-                    dictEntry
-                    |> Maybe.unwrap (Just [availability]) (\ availabilities -> Just (availability :: availabilities))
-                newDict = Dict.update day (updateDay <| newAvailability day) model.days
-             in ({ model | days = newDict }, Cmd.none)
-        DateChanged value ->
-            parseDate value
-            |> Maybe.unwrap unchanged (\ parsedDate -> ({ model | dateField = Just parsedDate }, Cmd.none))
-        AddDay ->
-            Maybe.map Calendar.toMillis model.dateField
-            |> Maybe.unwrap unchanged (\ posix -> ({ model | days = Dict.insert posix [] model.days }, Cmd.none))
-        AvailabilityTimeChanged timeType day idx value ->
+        AddAvailability dayidx ->
+            ( { model
+              | days = model.days
+                    |> List.updateAt dayidx (Tuple.mapSecond (\ avails -> newAvailability :: avails))
+              }
+            , Cmd.none
+            )
+        AvailabilityTimeChanged timeType dayidx availidx value ->
             let updateAvailability newTime avail = case timeType of
                     StartTime -> { avail | startTime = Just newTime }
                     EndTime   -> { avail | endTime = Just newTime }
-                
-                updateAvails newTime = List.updateAt idx (updateAvailability newTime)
+                updateAvails newTime = List.updateAt availidx (updateAvailability newTime)
              in parseTime value
-                |> Maybe.map (\ time -> Dict.update day (Maybe.map (updateAvails time)) model.days)
+                |> Maybe.map (\ time -> List.updateAt dayidx (updateAvails time |> Tuple.mapSecond) model.days)
                 |> Maybe.unwrap unchanged (\ newDays -> ({ model | days = newDays }, Cmd.none))
-        DeleteAvailability day idx ->
-            let newDays = Dict.update day (Maybe.map (List.removeAt idx)) model.days
-             in ({ model | days = newDays }, Cmd.none)
-        AttendeeInfoChanged attendeeInfoType value ->
-            case attendeeInfoType of
-                Name -> ({ model | attendeeName = value }, Cmd.none)
-                Email -> ({ model | attendeeEmail = value }, Cmd.none)
+        DeleteAvailability dayidx availidx ->
+            model.days
+            |> List.updateAt dayidx (List.removeAt availidx |> Tuple.mapSecond)
+            |> \ d -> Tuple.pair { model | days = d } Cmd.none
+        GotMeeting (Err _) -> (model, Cmd.none)
+        GotMeeting (Ok meeting) ->
+            let compareDates a b = compareDate (a.date) (b.date)
+                toDraft { startTime, endTime } =
+                    { startTime = Just startTime
+                    , endTime = Just endTime
+                    }
+                daysWithAvails = meeting.availabilities
+                    |> List.map .date
+                    |> List.unique
+                daysWithoutAvails = meeting.days
+                    |> List.filterNot (\ date -> List.member date daysWithAvails)
+                parsedDaysDict = meeting.availabilities
+                    |> List.filter (\ { userId } -> userId == user.id)
+                    |> List.sortWith compareDates
+                    |> List.groupWhile (\ a b -> compareDates a b == EQ)
+                    |> List.map (\ ({ date } as head, values) -> (date, List.map toDraft (head :: values)))
+                    |> List.append (daysWithoutAvails |> List.map (\ date -> (date, [])))
+                    |> List.sortWith (\ (a, _) (b, _) -> compareDate a b)
+             in ( { model
+                  | startTime = meeting.start
+                  , endTime = meeting.end
+                  , days = parsedDaysDict
+                  , isOwn = List.member user.id meeting.userIds
+                  , maximumAttendancy = meeting.maximumAttendancy
+                  }
+                , Cmd.none
+                )
+        SubmitAvailabilities ->
+            let toAvailability day { startTime, endTime } = case (startTime, endTime) of
+                    (Just start, Just end) ->
+                        Just { startTime = start , endTime = end , date = day , userId = user.id }
+                    _ -> Nothing
+                encodeDay (day, values) = List.map (toAvailability day) values
+                avails = List.concatMap encodeDay model.days |> Maybe.combine
+             in case avails of
+                Just availabilities ->
+                    ( model
+                    , Http.post
+                        { url = "http://localhost:8001/meeting/" ++ model.id
+                        , expect = Http.expectWhatever SubmittedAvailabilities
+                        , body = Http.jsonBody (Encode.list availabilityEncoder availabilities)
+                        }
+                    )
+                Nothing -> ({ model | error = Just "Not all availabilities have been correctly filled out" }, Cmd.none)
+        SubmittedAvailabilities (Err _) -> ({ model | error = Just "Could not submit availabilities" }, Cmd.none)
+        SubmittedAvailabilities (Ok _) -> ({ model | error = Nothing }, Cmd.none)
+        AddMeetingToOwnMeetings ->
+            ( model
+            , Http.post
+                { url = "http://localhost:8001/meeting/" ++ model.id ++ "/addUser"
+                , body = Http.emptyBody
+                , expect = Http.expectWhatever AddedMeetingToOwnMeetings
+                }
+            )
+        AddedMeetingToOwnMeetings (Err _) -> ({ model | error = Just "Could not add meeting to your meetings" }, Cmd.none)
+        AddedMeetingToOwnMeetings (Ok _) -> ({ model | error = Nothing, isOwn = True }, Cmd.none)
 
 -- VIEW
 
 view : Model -> List (Html Msg)
 view model =
-    let viewedDays   = model.days |> Dict.map (viewDay model.startTime model.endTime) |> Dict.values
-        attendeeInfo = viewAttendeeInfo model.attendeeName model.attendeeEmail
-     in attendeeInfo :: addDayForm :: viewedDays ++ [text <| Debug.toString model.days]
+    let viewedDays = model.days |> List.indexedMap (viewDay model.startTime model.endTime)
+        viewContent = button [onClick SubmitAvailabilities] [text "Submit"] :: viewedDays
+        viewError = case model.error of
+            Just error -> [p [] [text error]]
+            Nothing -> []
+        viewAddButton = if model.isOwn
+            then []
+            else [button [onClick AddMeetingToOwnMeetings] [text "Add to your meetings"]]
+        viewMaybeMaximumAttendancy = case model.maximumAttendancy of
+            Just a -> viewMaximumAttendancy a
+            Nothing -> []
+     in viewError ++ viewAddButton ++ viewMaybeMaximumAttendancy ++ viewContent
 
-viewAttendeeInfo : String -> String -> Html Msg
-viewAttendeeInfo name email = div []
-    [ label [] [text "Name: "]
-    , input [type_ "text", value name, onInput (AttendeeInfoChanged Name)] []
-    , label [] [text "Email: "]
-    , input [type_ "email", value email, onInput (AttendeeInfoChanged Email)] []
+viewMaximumAttendancy : MaximumAttendancy -> List (Html Msg)
+viewMaximumAttendancy { users, start, end } =
+    [ text <| "The maxmimum attendancy is " ++ String.fromInt (List.length users) ++ " people. "
+        ++ "It is from " ++ formatDateTime start ++ " until " ++ formatDateTime end ++ "."
     ]
 
-addDayForm : Html Msg
-addDayForm = form [onSubmit AddDay]
-    [ input [type_ "date", onInput DateChanged] []
-    , input [type_ "submit"] []
-    ]
-
-viewDay : Time -> Time -> Int -> List AvailabilityDraft -> Html Msg
-viewDay startTime endTime day availabilities =
-    let formattedDate = day |> millisToDate |> formatDate
+viewDay : Time -> Time -> Int -> (Date, List AvailabilityDraft) -> Html Msg
+viewDay startTime endTime dayidx (day, availabilities) =
+    let formattedDate = formatDate day
      in div []
         [ h2 [] [text formattedDate]
-        , div [] <| List.indexedMap (viewAvailabilities startTime endTime day) availabilities
-        , button [onClick <| AddAvailability day] [text "New availability"]
+        , div [] <| List.indexedMap (viewAvailabilities startTime endTime dayidx) availabilities
+        , button [onClick <| AddAvailability dayidx] [text "New availability"]
         ]
 
 viewAvailabilities : Time -> Time -> Int -> Int -> AvailabilityDraft -> Html Msg
-viewAvailabilities startTime endTime day idx availability =
+viewAvailabilities startTime endTime dayidx availidx availability =
     let startTimeValue = Maybe.unwrap "" formatTime availability.startTime
         endTimeValue   = Maybe.unwrap "" formatTime availability.endTime
      in div []
         [ input -- TODO: Refactor
             [ type_ "time"
-            , A.min <| formatTime <| startTime
-            , A.max <| formatTime <| endTime
+            , A.min (startTime |> formatTime |> String.dropRight 3)
+            , A.max (endTime |> formatTime |> String.dropRight 3)
             , value <| startTimeValue
-            , onInput (AvailabilityTimeChanged StartTime day idx)
+            , onInput (AvailabilityTimeChanged StartTime dayidx availidx)
             ] []
         , input
             [ type_ "time"
-            , A.min <| formatTime <| startTime
-            , A.max <| formatTime <| endTime
+            , A.min (startTime |> formatTime |> String.dropRight 3)
+            , A.max (endTime |> formatTime |> String.dropRight 3)
             , value <| endTimeValue
-            , onInput (AvailabilityTimeChanged EndTime day idx)
+            , onInput (AvailabilityTimeChanged EndTime dayidx availidx)
             ] []
-        , button [onClick (DeleteAvailability day idx)] [text "Delete"]
+        , button [onClick (DeleteAvailability dayidx availidx)] [text "Delete"]
         ]
