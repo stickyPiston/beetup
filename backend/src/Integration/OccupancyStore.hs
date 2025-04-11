@@ -1,7 +1,7 @@
 module Integration.OccupancyStore where
 
 import Database.Persist (selectList, (==.), PersistStoreWrite (insert))
-import Integration.Init (UserEntityId, EntityField (OccupancyEntityUserId))
+import Utils.DbInit (UserEntityId, EntityField (OccupancyEntityUserId))
 import Database.Persist.Sql (toSqlKey)
 import Control.Monad (void)
 import Utils.Datatypes (UserId, Occupancy)

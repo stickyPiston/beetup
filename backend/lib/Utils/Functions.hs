@@ -4,7 +4,7 @@ import Data.Time (Day, NominalDiffTime)
 import Text.ICalendar (Date (Date))
 import Database.Persist (Entity (entityKey, entityVal))
 import Database.Persist.Sql (fromSqlKey, toSqlKey)
-import Integration.Init
+import Utils.DbInit
 
 whenNothing :: Monad m => Maybe a -> m () -> m ()
 whenNothing Nothing f = f
