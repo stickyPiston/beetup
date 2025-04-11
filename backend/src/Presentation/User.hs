@@ -9,6 +9,7 @@ import Integration.UserStore (findUserById)
 import Data.Text (pack)
 import Utils.Endpoint (DBPool, withDB)
 
+-- | HTTP Get endpoint to find the information on the currently logged in user
 getUserMe :: Sessions -> DBPool -> ResponderM a
 getUserMe sessions pool = do
   -- Find ID from the session cookie

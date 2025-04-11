@@ -9,6 +9,7 @@ import Control.Monad.IO.Class (MonadIO(liftIO))
 import Web.Twain (ResponderM, send, status, status400, text, status200, request, strictRequestBody)
 import Utils.Endpoint (DBPool, withDB)
 
+-- | HTTP Post endpoint for importing the calendar of a user
 importUserCalendar :: Sessions -> DBPool -> ResponderM a
 importUserCalendar sessions pool = do
   -- Find ID from the session cookie

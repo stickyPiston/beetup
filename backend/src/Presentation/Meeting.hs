@@ -21,6 +21,7 @@ import Utils.DbInit (MeetingEntity(..), AvailabilityEntity(..))
 import Data.List (nub, sortOn, delete, maximumBy)
 import Data.Function (on)
 
+-- | Params for the create meeting request
 data MeetingParams = MeetingParams {
     title       :: Text,
     start       :: UTCTime,
@@ -29,6 +30,7 @@ data MeetingParams = MeetingParams {
     description :: Text
 }
 
+-- | Params for the get meeting request
 newtype MeetingIdParams = MeetingIdParams {
   meetingId :: Text
 }
@@ -45,11 +47,13 @@ instance FromJSON MeetingParams where
     <*> o .: "days"
     <*> o .: "description"
 
+-- | Params for the add availabilities to meeting request
 data AvailabilityParams = AvailabilityParams {
   start :: UTCTime,
   end   :: UTCTime
 }
 
+-- | Params for the get meeting request response
 data MeetingResponse = MeetingResponse {
   meetingId :: MeetingId,
   title :: Text,
@@ -62,6 +66,7 @@ data MeetingResponse = MeetingResponse {
   maximumAttendancy :: Maybe Attendancy
 }
 
+-- | Params for the get availabilities request response
 data AvailabilityResponse = AvailabilityResponse {
   start :: UTCTime,
   end :: UTCTime,
@@ -89,7 +94,10 @@ instance FromJSON AvailabilityParams where
     <$> o .: "start"
     <*> o .: "end"
 
-meetingToResponse :: Meeting -> Maybe Attendancy -> MeetingResponse
+-- | Function that transforms a meeting into a request response
+meetingToResponse :: Meeting -- ^ Meeting to be transformed
+                  -> Maybe Attendancy -- ^ Calculated best meeting time
+                  -> MeetingResponse
 meetingToResponse (Meeting mId t s e days uIds desc as) = MeetingResponse 
   mId 
   t 
@@ -100,42 +108,52 @@ meetingToResponse (Meeting mId t s e days uIds desc as) = MeetingResponse
   desc
   (map availabilityToResponse as)
  
-
+-- | Function that transforms an availability to a request response
 availabilityToResponse :: Availability -> AvailabilityResponse
 availabilityToResponse (Availability s e uId) = AvailabilityResponse s e uId
 
+-- | HTTP Post endpoint for creating meetings
 createMeeting :: Sessions -> DBPool -> ResponderM a
 createMeeting sessions pool = do
   MeetingParams title start end days desc <- fromBody
 
+  -- Grab the id of the logged in meeting
   uId <- requireSession sessions
+
+  -- Generate a meeting id
   meetingId <- liftIO nextRandom
 
   let meeting = Meeting (pack $ show meetingId) title start end days [uId] desc []
   
+  -- Store the meeting
   _ <- withDB pool $ storeMeeting meeting
 
   send $ status status200 $ json $ object ["meetingId" .= meetingId]
 
+-- | HTTP Put endpoint for adding availabilities to a meeting
 addAvailabilitiesToMeeting :: Sessions -> DBPool -> ResponderM a
 addAvailabilitiesToMeeting sessions pool = do
+  -- Grab user and meeting id
   uId <- requireSession sessions
   mId <- param "mId"
   (availabilityParamsToAvailabilities uId -> bodyAps) <- fromBody
 
+  -- Update the meeting and responed users in the database
   withDB pool (updateAvailabilities mId uId bodyAps)
   withDB pool (updateUsers mId uId)
 
   send $ status status200 $ text "Done."
 
+-- | Datatype that hods information on when the user is available for the meeting
 data ScanStep
-  = Join { stepDate :: UTCTime, stepUser :: UserId }
-  | Leave { stepDate :: UTCTime, stepUser :: UserId }
+  = Join { stepDate :: UTCTime, stepUser :: UserId } -- ^ Available for the meeting
+  | Leave { stepDate :: UTCTime, stepUser :: UserId } -- ^ Not available for the meeting
 
+-- | Datatype that holds information on which users are attending the meeting at the decided time.
 data Attendancy = Attendancy
-  { users :: [UserId]
-  , start :: UTCTime
-  , end   :: UTCTime
+  { users :: [UserId] -- ^ Users that attend the meeting
+  , start :: UTCTime -- ^ Start time of the meeting
+  , end   :: UTCTime -- ^ End time of the meeting
   } deriving Show
 
 instance ToJSON Attendancy where
@@ -145,26 +163,37 @@ instance ToJSON Attendancy where
     , "end" .= end
     ]
 
+-- | HTTP Get endpoint to find a meeting with an Id
 getMeetingWithId :: Sessions -> DBPool -> ResponderM a
 getMeetingWithId sessions pool = do
+  -- Grab user & meeting id
   uId <- requireSession sessions
   mId <- param "mId"
   
+  -- | Query the meeting from the database
   withDB pool (findMeetingById mId) >>= \case
+    -- No meeting exists
     Nothing -> send $ status status400 $ text "No such meeting"
+    
+    -- Meeting exists, return it
     Just meeting@Meeting { mAvailabilities } ->
       let ownAvailabilities = filter (\(Availability _ _ id) -> id == uId) mAvailabilities
           response = meetingToResponse meeting { mAvailabilities = ownAvailabilities } (findMaximumAttendancy mAvailabilities)
        in send $ status status200 $ json response
 
+-- | Function that finds the best time to host the meeting based on the availabilities of the responded users
 findMaximumAttendancy :: [Availability] -> Maybe Attendancy
 findMaximumAttendancy avails =
+  -- Find possible times to host the meeting
   let scanSteps = sortOn stepDate $ concatMap toScanStep avails
       scanList = scanl trackUsers [] scanSteps
       dates = map stepDate scanSteps
       attendencies = zipWith3 Attendancy (tail scanList) dates (tail dates)
+   
+   -- If there are not attendies, return nothing
    in case attendencies of
     [] -> Nothing
+    -- If there are, return the first time step with the largest attendence
     _ -> Just $ maximumBy (compare `on` (length . users)) attendencies
   where
     trackUsers :: [UserId] -> ScanStep -> [UserId]
@@ -174,9 +203,11 @@ findMaximumAttendancy avails =
     toScanStep :: Availability -> [ScanStep]
     toScanStep (Availability start end uId) = [Join start uId, Leave end uId]
 
+-- | Function that transforms a request body into a list of availabilities
 availabilityParamsToAvailabilities :: UserId -> [AvailabilityParams] -> [Availability]
 availabilityParamsToAvailabilities uId = map (\ (AvailabilityParams s e) -> Availability s e uId)
 
+-- | HTTP Get endpoint to query the users meetings
 getOwnMeetings :: Sessions -> DBPool -> ResponderM a
 getOwnMeetings sessions pool = do
   userId <- requireSession sessions
@@ -200,6 +231,7 @@ getOwnMeetings sessions pool = do
     ownMeeting uid (Entity { entityVal = meeting }) =
       fromIntegral uid `elem` map fromSqlKey meeting.meetingEntityUserIds
 
+-- | HTTP Put endpoint to add a user to a specific meeting
 addUserToMeeting :: Sessions -> DBPool -> ResponderM a
 addUserToMeeting sessions pool = do
   uId <- requireSession sessions

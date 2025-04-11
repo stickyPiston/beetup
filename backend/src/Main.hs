@@ -15,13 +15,18 @@ import Presentation.Meeting (createMeeting, addAvailabilitiesToMeeting, getMeeti
 import Database.Persist.Sqlite (createSqlitePool)
 import Control.Monad.Logger (runNoLoggingT)
 
+-- | Main function that starts up the web server
 main :: IO ()
 main = do
+  -- Create new sessions map
   sessions <- newIORef M.empty
+
+  -- Start up the database
   pool <- runNoLoggingT $ createSqlitePool "main.db" 10
 
   initDB pool
 
+  -- Serve the specified endpoints on port 8001
   Warp.run 8001 $
     foldr ($)
       (notFound missing)
@@ -38,5 +43,6 @@ main = do
       , post "/meeting/:mId/addUser" (addUserToMeeting sessions pool)
       ]
 
+-- | Backup endpoint if there is no endpoint found
 missing :: ResponderM a
 missing = send $ html "Not found..."

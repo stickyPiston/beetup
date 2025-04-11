@@ -10,6 +10,7 @@ import Utils.Endpoint (withDB, DBPool)
 instance ToJSON Occupancy where
   toJSON (Occupancy t s e) = object ["title" .= t, "start" .= s, "end" .= e]
 
+-- | HTTP Get endpoint to query the stored occupancies of a user
 getUserOccupancies :: Sessions -> DBPool -> ResponderM a
 getUserOccupancies sessions pool = do
   uId <- requireSession sessions
