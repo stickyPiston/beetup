@@ -14,8 +14,8 @@ determineAvailabilites :: UTCTime -- ^ Start of timeslice to be considered
                        -> [Occupancy] -- ^ Occupancies expressing no availability in the timeslice to be considered
                        -> UserId -- ^ UserId of the availability
                        -> Maybe [Availability] -- ^ Resulting availabilities (zero or more)
-determineAvailabilites from til os id | from >= til = Nothing
-                                   | otherwise   = foldl f (Just [Availability from til id]) $ sort os
+determineAvailabilites from til os uid | from >= til = Nothing
+                                       | otherwise   = foldl f (Just [Availability from til uid]) $ sort os
   where
     f :: Maybe [Availability] -> Occupancy -> Maybe [Availability]
     f Nothing   = const Nothing
