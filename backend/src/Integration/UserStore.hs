@@ -8,11 +8,18 @@ import Utils.Datatypes (User, UserId)
 import Utils.Functions (entityToUser)
 import Utils.Endpoint (SqlQuery)
 
-findUserByUsername :: Text -> SqlQuery (Maybe User)
+-- | Finds a user by their username
+findUserByUsername :: Text -- ^ Username of the user that is queried 
+                   -> SqlQuery (Maybe User)
 findUserByUsername uname = fmap entityToUser <$> selectFirst [UserEntityUsername ==. uname] []
 
-findUserById :: Int -> SqlQuery (Maybe User)
+-- | Finds a user by their Id
+findUserById :: UserId -- Id of the user that is queried
+             -> SqlQuery (Maybe User)
 findUserById id = fmap entityToUser <$> selectFirst [UserEntityId ==. toSqlKey (fromIntegral id)] []
 
-insertUser :: UserEntity -> SqlQuery UserId
+-- | Adds a user to the database
+-- | Returns the generated Id of that user
+insertUser :: UserEntity -- Entity of the user that is stored
+           -> SqlQuery UserId
 insertUser u = fromIntegral . fromSqlKey <$> insert u

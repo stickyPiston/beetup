@@ -23,6 +23,7 @@ import Integration.UserStore (findUserByUsername, insertUser)
 import Utils.DbInit (UserEntity(UserEntity))
 import Utils.Endpoint (withDB, DBPool)
 
+-- | Parameters of the login request
 data LoginParams = LoginParams
   { username :: Text
   , password :: Text
@@ -33,6 +34,7 @@ instance FromJSON LoginParams where
     <$> o .: "username"
     <*> o .: "password"
 
+-- | Response for the login request
 data LoginResponse = LoginResponse
   { name :: Text
   , id :: Text
@@ -41,6 +43,7 @@ data LoginResponse = LoginResponse
 instance ToJSON LoginResponse where
   toJSON (LoginResponse name id) = object ["name" .= name, "id" .= id]
 
+-- | Parameters for the register request
 data RegisterParams = RegisterParams
   { username :: Text
   , password :: Text
@@ -53,14 +56,26 @@ instance FromJSON RegisterParams where
     <*> o .: "password"
     <*> o .: "name"
 
-requireSession :: Sessions -> ResponderM UserId
+-- | Function that checks if there is a session token inside the cookies of the client
+--   If no cookie is found, status 401 is returned.
+--   Otherwise the Id of the logged in user is returned.
+requireSession :: Sessions -- ^ Map of currently logged in sessions
+               -> ResponderM UserId
 requireSession sessions = do
+  -- Grab the session from the cookie
   sessionCookie <- cookieParamMaybe "SESSION"
+
+  -- Grab the session map
   sessionMap <- liftIO $ readIORef sessions
+  
+  -- Check if the cookie is recognised
   case sessionCookie >>= fromText >>= (sessionMap M.!?) of
+    -- If so return the user id
     Just userID -> return userID
+    -- If not, send status 401
     Nothing -> send $ status status401 $ text "Unauthorized."
 
+-- | HTTP Post endpoint to register a new user
 register :: DBPool -> ResponderM a
 register pool = do
   RegisterParams uname (mkPassword -> password) name <- fromBody
@@ -84,15 +99,21 @@ register pool = do
     $ withHeader ("token", toASCIIBytes sessionID) 
     $ json userId
 
+-- | HTTP POST endpoint for logging out
 logout :: Sessions -> ResponderM a
 logout sessions = do
+  -- Grab the session cookie
   cookie <- cookieParamMaybe "SESSION"
+  
+  -- Remove the cookie from the sessions map
   case cookie >>= fromText of
     Just sessionID ->
       liftIO $ modifyIORef' sessions (M.delete sessionID)
     _ -> return ()
-  send $raw status200 [] ""
+  -- Return status 200
+  send $ raw status200 [] ""
 
+-- | HTTP Post endpoint for logging in
 login :: Sessions -> DBPool -> ResponderM a
 login sessions pool = do
   LoginParams uname (mkPassword -> password) <- fromBody
@@ -111,4 +132,5 @@ login sessions pool = do
         send 
           $ withCookie "SESSION" (toText sessionID) 
           $ json $ LoginResponse name (pack $ show id)
+      -- If not, return 401
       | otherwise -> send $ status status401 $ text "Incorrect password"

@@ -11,13 +11,21 @@ import Utils.DbInit (EntityField(MeetingEntityMeetingId, MeetingEntityAvailabili
 import Utils.Endpoint (SqlQuery)
 import Control.Monad (void)
 
-storeMeeting :: Meeting -> SqlQuery ()
+-- | Store a meeting inside the database
+storeMeeting :: Meeting -- ^ Meeting object to store
+             -> SqlQuery ()
 storeMeeting = void . insert . meetingToEntity
 
-findMeetingById :: MeetingId -> SqlQuery (Maybe Meeting)
+-- | Queries the database for a meeting with the given ID
+findMeetingById :: MeetingId -- ^ Id of the meeting that is to be queried 
+                -> SqlQuery (Maybe Meeting)
 findMeetingById id = fmap entityToMeeting <$> selectFirst [MeetingEntityMeetingId ==. id] []
 
-updateAvailabilities :: MeetingId -> UserId -> [Availability] -> SqlQuery ()
+-- | Updates the availabilities  of the given user for a specific meeting
+updateAvailabilities :: MeetingId -- ^ Id of the meeting that needs to be updated 
+                     -> UserId -- ^ Id of the user who's availabilities are updated
+                     -> [Availability] -- ^ List of new availabilities that replace the old ones
+                     -> SqlQuery ()
 updateAvailabilities mId uId as =
   selectFirst [MeetingEntityMeetingId ==. mId] [] >>= \case
     Just Entity { entityVal = meeting } ->
@@ -27,7 +35,10 @@ updateAvailabilities mId uId as =
        in updateWhere [MeetingEntityMeetingId ==. mId] [MeetingEntityAvailabilities =. newAs]
     Nothing -> return ()
 
-updateUsers :: MeetingId -> UserId -> SqlQuery ()
+-- | Connects a user to a meeting
+updateUsers :: MeetingId -- ^ Id of the meeting that needs to be updated
+            -> UserId -- ^ Id of the user that is added to the meeting
+            -> SqlQuery ()
 updateUsers mId uId =
   selectFirst [MeetingEntityMeetingId ==. mId] [] >>= \case
     Just Entity { entityVal = meeting } ->

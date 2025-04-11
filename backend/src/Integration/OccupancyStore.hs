@@ -9,19 +9,27 @@ import Utils.Functions (entityToOccupancy, occupancyToEntity)
 import Utils.Endpoint (SqlQuery)
 
 -- Function to find user occupancies by user ID
-findUserOccupancies :: UserId -> SqlQuery [Occupancy]
+findUserOccupancies :: UserId -- ^ UserId of the user whos occupancies are queried 
+                    -> SqlQuery [Occupancy]
 findUserOccupancies uId =
   -- Convert int to UserEntityId
   let userId = toSqlKey (fromIntegral uId) :: UserEntityId
       entitiesQuery = selectList [OccupancyEntityUserId ==. userId] []
    in map entityToOccupancy <$> entitiesQuery
 
-storeUserOccupancy :: UserId -> Occupancy -> SqlQuery ()
+-- | Adds an occupancy to the given user
+storeUserOccupancy :: UserId -- ^ Id of the user
+                   -> Occupancy -- ^ Occupancy that needs to be added
+                   -> SqlQuery ()
 storeUserOccupancy uId o =
   -- Convert int to UserEntityId
   let userId = toSqlKey (fromIntegral uId) :: UserEntityId
       entity = occupancyToEntity o userId
    in void $ insert entity
 
-storeUserOccupancies :: UserId -> [Occupancy] -> SqlQuery ()
+-- | Stores multiple occupancies at the same time
+--   Maps over storeUserOccupancy.
+storeUserOccupancies :: UserId -- ^ Id of the user
+                     -> [Occupancy] -- ^ List of the occupancies that need to be added
+                     -> SqlQuery ()
 storeUserOccupancies uId = mapM_ (storeUserOccupancy uId) 
