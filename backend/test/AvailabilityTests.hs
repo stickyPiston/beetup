@@ -1,17 +1,16 @@
 module AvailabilityTests (availabilityTests) where
 
-import HelperFunctions (halfHour, steps)
-import Availability (timeSlots, determineAvailabilites)
-import Utils.Datatypes (earlier, overlaps, valid)
+import HelperFunctions (steps)
+import Availability (determineAvailabilites)
+import Utils.Datatypes (overlaps, valid)
 import Arbitraries
-import Data.Maybe (maybe)
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
 
 availabilityTests :: TestTree
 availabilityTests = testGroup "Tests generation of availabilities based on occupancies" $
-                      [availabilitiesValid]
+                      [availabilitiesValid, availabilitiesDoNotOverlap]
 
 availabilitiesValid :: TestTree
 availabilitiesValid = testProperty "Availabilities are valid" $

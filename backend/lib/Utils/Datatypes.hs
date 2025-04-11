@@ -120,7 +120,7 @@ disj original substr | not $ valid original = Nothing
                      | not $ valid substr   = Nothing
                      | not $ original `overlaps` substr = Just [original]
                      | substr `contains` original = Just []
-                     | original `contains` substr = Just [setEnd original $ start substr, setStart original $ end substr]
+                     | original `contains` substr = Just $ filter valid [setEnd original $ start substr, setStart original $ end substr]
                      | original `earlier` substr = Just [setStart original $ end substr]
                      | otherwise = Just [setEnd original $ start substr]
 

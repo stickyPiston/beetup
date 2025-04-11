@@ -1,5 +1,5 @@
 module HelperFunctions (tally, steps, halfHour, minutes) where
-import Data.Time (NominalDiffTime, secondsToNominalDiffTime)
+import Data.Time (NominalDiffTime)
 import Data.Fixed (Pico)
 
 -- import Test.Tasty.QuickCheck (Gen(..))
@@ -15,6 +15,6 @@ steps xs = zip xs (tail xs)
 halfHour :: NominalDiffTime
 halfHour = secondsToNominalDiffTime (60 * 30)
 
-minutes :: Pico -> NominalDiffTime
-minutes n = secondsToNominalDiffTime (60 * n)
+minutes :: Int -> NominalDiffTime
+minutes n = fromIntegral (60 * n)
 

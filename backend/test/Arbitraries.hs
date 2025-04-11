@@ -1,10 +1,10 @@
 module Arbitraries (genTimeStampsInOrder, genOccupanciesInOrder, genOccupanciesWithRange) where
 
-import Data.Time (UTCTime(..), NominalDiffTime, diffUTCTime)
-import Data.Time.Clock (DiffTime, secondsToDiffTime)
+import Data.Time (UTCTime(..), NominalDiffTime, diffUTCTime, addUTCTime)
+import Data.Time.Clock (DiffTime)
 import Data.Time.Calendar.OrdinalDate (Day, fromOrdinalDate)
-import Test.Tasty.QuickCheck (Arbitrary, arbitrary, Gen, suchThat, scale, chooseAny)
-import HelperFunctions (halfHour)
+import Test.Tasty.QuickCheck (Arbitrary, arbitrary, Gen, suchThat, scale, chooseAny, resize, elements, sized)
+import HelperFunctions (halfHour, minutes)
 import Utils.Datatypes (Occupancy(..))
 import Data.Text (pack, Text)
 
@@ -17,7 +17,7 @@ instance Arbitrary Day where
   arbitrary = fromOrdinalDate <$> arbitrary <*> arbitrary
 
 instance Arbitrary DiffTime where
-  arbitrary = (secondsToDiffTime . (*) 60) <$> arbitrary
+  arbitrary = (fromIntegral . (*) 60) <$> (arbitrary :: Gen Int)
 
 instance Arbitrary Occupancy where
   arbitrary = do
@@ -30,22 +30,26 @@ instance Arbitrary Occupancy where
 -- | Generates infinite random timestamps, in order, and not too close to each other
 genTimeStampsInOrder :: NominalDiffTime -- ^ Minimum difference in time between timestamps
                      -> Gen [UTCTime]   -- ^ Generator of all those timestamps
-genTimeStampsInOrder td = scale (`div` 20) $ do
-  t  <- arbitrary :: Gen UTCTime
-  ts <- suchThat (genTimeStampsInOrder td) $ \ts ->
+genTimeStampsInOrder td = sized $ \s -> do
+  zulu <- resize 0 arbitrary :: Gen UTCTime -- 0000-01-01
+  let t = minutes s `addUTCTime` zulu
+  ts <- suchThat (scale (*2) $ genTimeStampsInOrder td) $ \ts -> -- Enforce minimum time distance
     (head ts `diffUTCTime` t) > td
   return $ t : ts
 
 -- | Generates infinite random occupancies, in order, and not too close to each other
 genOccupanciesInOrder :: NominalDiffTime -- ^ Minimum difference in time between occupancies
                       -> Gen [Occupancy] -- ^ Generator of all those occupancies
-genOccupanciesInOrder td = (:) <$> arbitrary <*> genOccupanciesInOrder td
+genOccupanciesInOrder td = sized $ \size -> do
+  title <- pack <$> elements ["Kaasbier", "Madelief Vazantje", "-02394  sdfpu\\32-94\nlaas"]
+  ts <- genTimeStampsInOrder td
+  let [start, end] = take 2 ts
+  (:) (Occupancy title start end) <$> genOccupanciesInOrder td
 
 -- | Generates a finite amount of occupancies, and gives a suitable start and end range to test the occupancies
 genOccupanciesWithRange :: Gen ([Occupancy], UTCTime, UTCTime)
-genOccupanciesWithRange = do
-    numberOfOccupancies <- (+3) <$> suchThat arbitrary (>0)
-    occupancies   <- take numberOfOccupancies <$> genOccupanciesInOrder halfHour
-    let startRange = oStart $ head occupancies
-    let endRange   = oEnd $ occupancies !! (numberOfOccupancies - 2)
-    return (occupancies, startRange, endRange)
+genOccupanciesWithRange = sized $ \s -> do
+  occupancies   <- take (s + 3) <$> genOccupanciesInOrder halfHour
+  let startRange = oStart $ head occupancies
+  let endRange   = oEnd $ occupancies !! s
+  return (occupancies, startRange, endRange)

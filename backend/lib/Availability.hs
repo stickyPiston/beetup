@@ -15,11 +15,14 @@ determineAvailabilites :: UTCTime -- ^ Start of timeslice to be considered
                        -> UserId -- ^ UserId of the availability
                        -> Maybe [Availability] -- ^ Resulting availabilities (zero or more)
 determineAvailabilites from til os uid | from >= til = Nothing
-                                       | otherwise   = foldl f (Just [Availability from til uid]) $ sort os
+                                       | otherwise   = foldl substrOccupancy (Just [Availability from til uid]) $ sort os
   where
-    f :: Maybe [Availability] -> Occupancy -> Maybe [Availability]
-    f Nothing   = const Nothing
-    f (Just as) = fmap (init as ++) . disj (last as)
+    -- Remember that the availabilities are sorted from earliest to latest
+    substrOccupancy :: Maybe [Availability] -> Occupancy -> Maybe [Availability]
+    substrOccupancy Nothing       = const Nothing -- We have no availability left
+    substrOccupancy (Just [])     = const $ Just []
+    substrOccupancy (Just (x:[])) = disj x -- We split the latest availability with earliest occupancy
+    substrOccupancy (Just (x:xs)) = fmap (x :) . substrOccupancy (Just xs)
 
 -- | Given two timestamps, returns @TimeSlot@s such that all time between timestamps are covered
 -- (and thus potentially a little more, since the final e.g. 15 minutes will be covered by an e.g. 30 min timeslot).
