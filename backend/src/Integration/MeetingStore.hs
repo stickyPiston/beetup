@@ -33,5 +33,7 @@ updateUsers mId uId =
     Just Entity { entityVal = meeting } ->
       let users  = meeting.meetingEntityUserIds
           newUid = toSqlKey $ fromIntegral uId
-       in updateWhere [MeetingEntityMeetingId ==. mId] [MeetingEntityUserIds =. newUid : users]
+       in if newUid `elem` users
+        then return ()
+        else updateWhere [MeetingEntityMeetingId ==. mId] [MeetingEntityUserIds =. newUid : users]
     Nothing -> return ()

@@ -124,6 +124,8 @@ addAvailabilitiesToMeeting sessions pool = do
   (availabilityParamsToAvailabilities uId -> bodyAps) <- fromBody
 
   withDB pool (updateAvailabilities mId uId bodyAps)
+  withDB pool (updateUsers mId uId)
+
   send $ status status200 $ text "Done."
 
 data ScanStep
