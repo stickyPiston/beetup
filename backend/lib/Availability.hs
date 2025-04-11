@@ -1,8 +1,10 @@
-module Availability (determineAvailabilites, timeSlots) where
+{-# LANGUAGE OverloadedRecordDot #-}
 
-import Data.Time (UTCTime, NominalDiffTime, addUTCTime)
+module Availability (determineAvailabilites, splitAvailabilities, timeSlots) where
+
+import Data.Time (UTCTime (..), TimeOfDay(..), midnight, timeOfDayToTime, NominalDiffTime, addUTCTime)
 import Data.List (sort)
-import Utils.Datatypes (Availability (Availability), Occupancy, TimeSlot (TimeSlot), disj, UserId)
+import Utils.Datatypes (Availability (..), Occupancy, TimeSlot (TimeSlot), disj, UserId)
 
 -- | Creates an availability from the given timestamps, and then removes all slices
 -- of that availability where an occupancy overlaps. The result is zero or more
@@ -21,8 +23,25 @@ determineAvailabilites from til os uid | from >= til = Nothing
     substrOccupancy :: Maybe [Availability] -> Occupancy -> Maybe [Availability]
     substrOccupancy Nothing       = const Nothing -- We have no availability left
     substrOccupancy (Just [])     = const $ Just []
-    substrOccupancy (Just (x:[])) = disj x -- We split the latest availability with earliest occupancy
+    substrOccupancy (Just [x])    = disj x -- We split the latest availability with earliest occupancy
     substrOccupancy (Just (x:xs)) = fmap (x :) . substrOccupancy (Just xs)
+
+-- | Given a list of availabilites, split them up such that they do not span across day boundaries.
+splitAvailabilities :: [Availability] -> [Availability]
+splitAvailabilities = 
+  concatMap $ \a ->
+    if a.aStart.utctDay /= a.aEnd.utctDay then
+      let days = [a.aStart.utctDay .. a.aEnd.utctDay]
+          firstDay = UTCTime (head days) (utctDayTime a.aStart)
+          lastDay  = UTCTime (last days) (utctDayTime a.aEnd)
+          middle = init $ tail days
+          endOfDay = timeOfDayToTime $ TimeOfDay 23 59 0
+          startOfDay = timeOfDayToTime midnight
+        in Availability firstDay (UTCTime (head days) endOfDay) a.aUserId
+          : map (\ d -> Availability (UTCTime d startOfDay) (UTCTime d endOfDay) a.aUserId) middle
+          ++ [Availability (UTCTime (last days) startOfDay) lastDay a.aUserId]
+      else
+        [a]
 
 -- | Given two timestamps, returns @TimeSlot@s such that all time between timestamps are covered
 -- (and thus potentially a little more, since the final e.g. 15 minutes will be covered by an e.g. 30 min timeslot).

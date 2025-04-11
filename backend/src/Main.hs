@@ -10,7 +10,7 @@ import Presentation.Authentication (register, logout, login)
 import Presentation.User (getUserMe)
 import Presentation.Calendar (importUserCalendar)
 import Presentation.Occupancies (getUserOccupancies)
-import Presentation.Meeting (createMeeting, addAvailabilitiesToMeeting, getMeetingWithId, getOwnMeetings, addUserToMeeting)
+import Presentation.Meeting (createMeeting, addAvailabilitiesToMeeting, getMeetingWithId, getOwnMeetings, addUserToMeeting, importOccupancies)
 
 import Database.Persist.Sqlite (createSqlitePool)
 import Control.Monad.Logger (runNoLoggingT)
@@ -41,6 +41,7 @@ main = do
       , get "/meeting/:mId" (getMeetingWithId sessions pool)
       , get "/meeting" (getOwnMeetings sessions pool)
       , post "/meeting/:mId/addUser" (addUserToMeeting sessions pool)
+      , post "/meeting/:mId/import" (importOccupancies sessions pool)
       ]
 
 -- | Backup endpoint if there is no endpoint found

@@ -65,6 +65,8 @@ type Msg
     | SubmittedAvailabilities (Result Http.Error ())
     | AddMeetingToOwnMeetings
     | AddedMeetingToOwnMeetings (Result Http.Error ())
+    | ImportAvailabilities
+    | ImportedAvailabilities (Result Http.Error ())
 
 update : User -> Msg -> Model -> (Model, Cmd Msg)
 update user msg model =
@@ -147,6 +149,15 @@ update user msg model =
             )
         AddedMeetingToOwnMeetings (Err _) -> ({ model | error = Just "Could not add meeting to your meetings" }, Cmd.none)
         AddedMeetingToOwnMeetings (Ok _) -> ({ model | error = Nothing, isOwn = True }, Cmd.none)
+        ImportAvailabilities ->
+            let request = Http.post
+                    { url = "http://localhost:8001/meeting/" ++ model.id ++ "/import"
+                    , body = Http.emptyBody
+                    , expect = Http.expectWhatever ImportedAvailabilities
+                    }
+             in (model, request)
+        ImportedAvailabilities (Err _) -> ({ model | error = Just "Could not import occupancies" }, Cmd.none)
+        ImportedAvailabilities (Ok _) -> (model, Cmd.none)
 
 -- VIEW
 
@@ -163,7 +174,8 @@ view model =
         viewMaybeMaximumAttendancy = case model.maximumAttendancy of
             Just a -> viewMaximumAttendancy a
             Nothing -> []
-     in viewError ++ viewAddButton ++ viewMaybeMaximumAttendancy ++ viewContent
+        importButton = button [onClick ImportAvailabilities] [text "Import availabilities"]
+     in viewError ++ viewAddButton ++ (importButton :: viewMaybeMaximumAttendancy) ++ viewContent
 
 viewMaximumAttendancy : MaximumAttendancy -> List (Html Msg)
 viewMaximumAttendancy { users, start, end } =

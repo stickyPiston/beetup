@@ -4,22 +4,30 @@
 
 module Presentation.Meeting where
 
-import Utils.Datatypes (Sessions, Meeting (..), UserId, Availability (Availability), MeetingId)
-import Web.Twain (ResponderM, send, fromBody, status, status200, json, text, status400, param)
+import Utils.Datatypes
+    ( Sessions,
+      Meeting(..),
+      UserId,
+      Availability(Availability),
+      MeetingId,
+      Availability(..) )
+import Web.Twain (ResponderM, send, fromBody, status, status200, json, text, status400, param, status500)
 import Presentation.Authentication (requireSession)
 import Control.Monad.IO.Class (liftIO)
 import Data.UUID.V4 (nextRandom)
 import Data.Text (pack, Text)
 import Data.Aeson ((.=), (.:), FromJSON (parseJSON), withObject, object, ToJSON)
-import Data.Time (UTCTime, formatTime, defaultTimeLocale)
+import Data.Time (UTCTime (UTCTime, utctDay, utctDayTime), formatTime, defaultTimeLocale)
 import Integration.MeetingStore (storeMeeting, findMeetingById, updateAvailabilities, updateUsers)
 import Data.Aeson.Types (ToJSON(toJSON))
 import Utils.Endpoint (DBPool, withDB)
-import Database.Persist (selectList, Entity (..))
+import Database.Persist (selectList, Entity(..))
 import Database.Persist.Sql (fromSqlKey)
 import Utils.DbInit (MeetingEntity(..), AvailabilityEntity(..))
 import Data.List (nub, sortOn, delete, maximumBy)
 import Data.Function (on)
+import Availability (determineAvailabilites, splitAvailabilities)
+import Integration.OccupancyStore (findUserOccupancies)
 
 -- | Params for the create meeting request
 data MeetingParams = MeetingParams {
@@ -98,16 +106,16 @@ instance FromJSON AvailabilityParams where
 meetingToResponse :: Meeting -- ^ Meeting to be transformed
                   -> Maybe Attendancy -- ^ Calculated best meeting time
                   -> MeetingResponse
-meetingToResponse (Meeting mId t s e days uIds desc as) = MeetingResponse 
-  mId 
-  t 
+meetingToResponse (Meeting mId t s e days uIds desc as) = MeetingResponse
+  mId
+  t
   s
   e
   days
-  uIds 
+  uIds
   desc
   (map availabilityToResponse as)
- 
+
 -- | Function that transforms an availability to a request response
 availabilityToResponse :: Availability -> AvailabilityResponse
 availabilityToResponse (Availability s e uId) = AvailabilityResponse s e uId
@@ -124,7 +132,7 @@ createMeeting sessions pool = do
   meetingId <- liftIO nextRandom
 
   let meeting = Meeting (pack $ show meetingId) title start end days [uId] desc []
-  
+
   -- Store the meeting
   _ <- withDB pool $ storeMeeting meeting
 
@@ -169,12 +177,12 @@ getMeetingWithId sessions pool = do
   -- Grab user & meeting id
   uId <- requireSession sessions
   mId <- param "mId"
-  
+
   -- | Query the meeting from the database
   withDB pool (findMeetingById mId) >>= \case
     -- No meeting exists
     Nothing -> send $ status status400 $ text "No such meeting"
-    
+
     -- Meeting exists, return it
     Just meeting@Meeting { mAvailabilities } ->
       let ownAvailabilities = filter (\(Availability _ _ id) -> id == uId) mAvailabilities
@@ -189,12 +197,12 @@ findMaximumAttendancy avails =
       scanList = scanl trackUsers [] scanSteps
       dates = map stepDate scanSteps
       attendencies = zipWith3 Attendancy (tail scanList) dates (tail dates)
-   
+
    -- If there are not attendies, return nothing
    in case attendencies of
     [] -> Nothing
     -- If there are, return the first time step with the largest attendence
-    _ -> Just $ maximumBy (compare `on` (length . users)) attendencies
+    _ -> Just $ maximumBy (compare `on` length . users) attendencies
   where
     trackUsers :: [UserId] -> ScanStep -> [UserId]
     trackUsers ids (Join _ id)  = id : ids
@@ -240,3 +248,23 @@ addUserToMeeting sessions pool = do
   withDB pool (updateUsers mId uId)
 
   send $ status status200 $ text "Done."
+
+importOccupancies :: Sessions -> DBPool -> ResponderM a
+importOccupancies sessions pool = do
+  uId <- requireSession sessions
+  mId <- param "mId"
+
+  withDB pool (findMeetingById mId) >>= \case
+    Just meeting -> do
+      let firstDay = UTCTime (utctDay $ minimum meeting.mDays) (utctDayTime meeting.mStart)
+      let lastDay = UTCTime (utctDay $ maximum meeting.mDays) (utctDayTime meeting.mEnd)
+
+      occupancies <- withDB pool (findUserOccupancies uId)
+      case determineAvailabilites firstDay lastDay occupancies uId of
+        Just availabilities -> do
+          let ownAvails = filter (\a -> a.aUserId == uId) meeting.mAvailabilities
+          let splittedAvails = splitAvailabilities availabilities
+          withDB pool (updateAvailabilities mId uId (splittedAvails ++ ownAvails))
+          send $ status status200 $ text "Done."
+        Nothing -> send $ status status500 $ text "problem"
+    Nothing -> send $ status status400 $ text "Not a meeting"
