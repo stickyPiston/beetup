@@ -16,3 +16,12 @@ cabal run
 
 Don't forget to run the frontend as well if you would like to use the backend as
 a sane person.
+
+## Tests
+
+In order to run the tests, run the following command in this `backend` folder:
+
+```bash
+$ cabal test --enable-tests
+Resolving dependencies...
+```
