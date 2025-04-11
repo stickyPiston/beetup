@@ -62,7 +62,7 @@ meetingDecoder = Decode.succeed Meeting
     |> required "title" string
     |> required "description" string
     |> required "userIds" (list int |> Decode.map (List.map String.fromInt))
-    |> required "maximumAttendancy" (maximumAttendancyDecoder |> Decode.map Just)
+    |> required "maximumAttendancy" (Decode.nullable maximumAttendancyDecoder)
 
 maximumAttendancyDecoder : Decoder MaximumAttendancy
 maximumAttendancyDecoder = Decode.succeed MaximumAttendancy

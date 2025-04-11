@@ -1,18 +1,23 @@
 module Pages.Meeting exposing (..)
 
-import Html exposing (Html, form, label, text, input, div, span, ruby, rp, rt, textarea)
+import Html exposing (Html, label, text, input, div, span, ruby, rp, rt, textarea, button)
 import Html.Attributes exposing (value, type_, class)
 import Html.Events exposing (onInput, onClick)
 
 import Calendar exposing (getDay, getMonth, getDateRange)
 import Clock exposing (midnight)
-import Utils.DateTime exposing (Time, Date, formatTime, weekdays, getWeekStart, incrementDays, parseTime)
+import Utils.DateTime exposing (Time, Date, formatTime, weekdays, getWeekStart, incrementDays, parseTime, formatDate, formatTime)
 import Time exposing (Weekday(..), Month(..))
 import Models exposing (AvailabilityTimeType(..))
+
+import Browser.Navigation as Nav
 
 import Task
 import List.Extra as List
 import Maybe.Extra as Maybe
+import Http
+import Json.Encode as Encode
+import Json.Decode as Decode
 
 -- MODEL
 
@@ -49,19 +54,36 @@ type TextInputType
     | Description
 
 type Msg
-    = CreatingDraftAvailability
+    = CreateMeeting
     | GotDate Date
     | NextMonth
     | PrevMonth
     | DateClicked Date
     | TimeUpdated AvailabilityTimeType String
     | TextInputUpdated TextInputType String
+    | CreatedMeeting (Result Http.Error String)
+    | TitleUpdated String
+    | DescUpdated String
 
-update : Msg -> Model -> (Model, Cmd Msg)
-update msg model =
+update : Nav.Key -> Msg -> Model -> (Model, Cmd Msg)
+update key msg model =
     let incrementCurrentDay n = { model | currentDay = Maybe.map (incrementDays n) model.currentDay }
      in case msg of
-        CreatingDraftAvailability -> (model, Cmd.none)
+        CreateMeeting ->
+            let request = Http.post
+                    { url = "http://localhost:8001/meeting"
+                    , body = Http.jsonBody (Encode.object
+                        [ ("title", Encode.string model.title)
+                        , ("start", Encode.string <| "1970-01-01T" ++ formatTime model.startTime ++ "Z")
+                        , ("end", Encode.string <| "1970-01-01T" ++ formatTime model.startTime ++ "Z")
+                        , ("description", Encode.string model.description)
+                        , ("days", Encode.list (\ d -> Encode.string <| formatDate d ++ "T" ++ "00:00:00Z") model.selectedDates)
+                        ])
+                    , expect = Http.expectJson CreatedMeeting (Decode.at ["meetingId"] Decode.string)
+                    }
+             in (model, request)
+        CreatedMeeting (Err _) -> (model, Cmd.none)
+        CreatedMeeting (Ok id) -> (model, Nav.pushUrl key <| "/availability/" ++ id)
         GotDate date -> ({ model | currentDay = Just date }, Cmd.none)
         NextMonth -> (incrementCurrentDay 28, Cmd.none)
         PrevMonth -> (incrementCurrentDay -28, Cmd.none)
@@ -80,20 +102,23 @@ update msg model =
         TextInputUpdated textType value -> case textType of
             Title -> ({ model | title = value }, Cmd.none)
             Description -> ({ model | description = value }, Cmd.none)
+        DescUpdated input -> ({ model | description = input }, Cmd.none)
+        TitleUpdated input -> ({ model | title = input }, Cmd.none)
 
 -- VIEW
 
 view : Model -> List (Html Msg)
 view model = 
-    [ form []
+    [ div []
         [ label [] [text "Start time: "]
         , input [type_ "time", value <| formatTime model.startTime, onInput (TimeUpdated StartTime)] []
         , label [] [text "End time: "]
         , input [type_ "time", value <| formatTime model.endTime, onInput (TimeUpdated EndTime)] []
         , label [] [text "Title: "]
-        , input [type_ "text", value model.title] []
+        , input [onInput TitleUpdated, type_ "text", value model.title] []
         , label [] [text "Description: "]
-        , textarea [value model.description] []
+        , textarea [onInput DescUpdated, value model.description] []
+        , button [onClick CreateMeeting] [text "Submit"]
         , div [class "calendar"]
             [ span [class "arrow", onClick PrevMonth] [text "<"]
             , div [class "weeks"] (viewCalendar model)

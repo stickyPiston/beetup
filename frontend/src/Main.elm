@@ -112,7 +112,7 @@ update msg model = case (msg, model.currentPage) of
             in ({ model | currentPage = AvailabilityPage newModel }, Cmd.map AvailabilityMsg cmd)
         Nothing -> (model, Cmd.none) -- Impossible
     (MeetingMsg mmsg, MeetingPage meetingModel) ->
-        let (newModel, cmd) = Meeting.update mmsg meetingModel
+        let (newModel, cmd) = Meeting.update model.navKey mmsg meetingModel
          in ({ model | currentPage = MeetingPage newModel }, Cmd.map MeetingMsg cmd)
     -- If a message is received but the page that requested it is already swapped out,
     -- then just ignore the message.

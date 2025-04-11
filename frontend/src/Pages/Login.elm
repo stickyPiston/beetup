@@ -6,6 +6,8 @@ import Html.Attributes exposing (name, type_, value)
 
 import Browser.Navigation as Nav
 import Http
+import Process
+import Task
 
 import Json.Encode as Encode
 import Json.Decode exposing (int)
@@ -73,17 +75,12 @@ update key msg model = case msg of
         )
     RegisterFormMsg updateFn -> ({ model | registerForm = updateFn model.registerForm }, Cmd.none)
     GotUserId response -> case response of
-        Ok _  ->
-            let request = Http.get
-                    { url = "http://localhost:8001/user"
-                    , expect = Http.expectJson GotUser userDecoder
-                    }
-             in (model, request)
+        Ok _  -> (model, Nav.reload)
         Err _ -> (model, Cmd.none)
     GotUser response ->
         let newModel = { model | loginForm = { username = "", password = "" } }
          in case response of
-            Ok _ -> (newModel , Nav.pushUrl key "/")
+            Ok _ -> (newModel, Nav.pushUrl key "/")
             Err _ -> (newModel, Cmd.none)
 
 -- DECODERS / ENCODERS
