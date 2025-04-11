@@ -142,7 +142,14 @@ getOwnMeetings sessions pool = do
   userId <- requireSession sessions
   meetings <- filter (ownMeeting userId) <$> withDB pool (selectList [] [])
   send $ status status200 $ json
-    [ object ["id" .= m.meetingEntityMeetingId, "noOfUsers" .= noOfUsers m, "title" .= m.meetingEntityTitle]
+    [ object
+      [ "id" .= m.meetingEntityMeetingId
+      , "stats" .= object
+        [ "added" .= length m.meetingEntityUserIds
+        , "availabilities" .= noOfUsers m
+        ]
+      , "title" .= m.meetingEntityTitle
+      ]
     | Entity { entityVal = m } <- meetings
     ]
   where

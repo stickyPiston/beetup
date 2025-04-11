@@ -11,7 +11,7 @@ import Models exposing (User, Occupancy, User)
 import Utils.DateTime exposing (DateTime, formatDateTime, utcTimeDecoder)
 import List.Extra as List
 import Json.Decode as Decode exposing (Decoder, list)
-import Json.Decode.Pipeline exposing (required)
+import Json.Decode.Pipeline exposing (required, requiredAt)
 
 -- MODEL
 
@@ -28,7 +28,8 @@ type alias Occupancy =
 
 type alias Meeting =
     { id : String
-    , noOfUsers : Int
+    , added : Int
+    , availabilities : Int
     , title : String
     }
 
@@ -128,7 +129,8 @@ meetingsDecoder : Decoder (List Meeting)
 meetingsDecoder =
     Decode.succeed Meeting
     |> required "id" Decode.string
-    |> required "noOfUsers" Decode.int
+    |> requiredAt ["stats", "added"] Decode.int
+    |> requiredAt ["stats", "availabilities"] Decode.int
     |> required "title" Decode.string
     |> Decode.list
 
@@ -171,7 +173,12 @@ viewMeetings model = case model.meetings of
             ]
 
 viewMeeting : Meeting -> Html Msg
-viewMeeting meeting = li [] [a [href <| "/availability/" ++ meeting.id] [text meeting.title]]
+viewMeeting meeting = li []
+    [ a
+        [href <| "/availability/" ++ meeting.id]
+        [text <| meeting.title ++ " (" ++ String.fromInt meeting.added ++ " joined, "
+            ++ String.fromInt meeting.availabilities ++ " answered)"]
+    ]
 
 viewOccupanciesPanel : List Occupancy -> Html Msg
 viewOccupanciesPanel occupancies = div []

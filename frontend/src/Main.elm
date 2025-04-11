@@ -13,8 +13,8 @@ import Pages.Login as Login
 import Pages.Home as Home
 import Pages.Availability as Availability
 import Pages.Meeting as Meeting
-
 import Models exposing (User, userDecoder)
+
 import Json.Decode as Decode
 
 main : Program Decode.Value Model Msg
