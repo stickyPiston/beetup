@@ -5,7 +5,7 @@ import Web.Twain
 import Data.IORef (newIORef)
 import qualified Data.Map as M
 
-import Integration.Init (initDB)
+import Utils.DbInit (initDB)
 import Presentation.Authentication (register, logout, login)
 import Presentation.User (getUserMe)
 import Presentation.Calendar (importUserCalendar)

@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Integration.Init where
+module Utils.DbInit where
 
 import Database.Persist.TH (share, mkPersist, sqlSettings, mkMigrate, persistLowerCase)
 import Data.Time (UTCTime)

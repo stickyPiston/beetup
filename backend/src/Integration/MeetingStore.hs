@@ -7,7 +7,7 @@ import Utils.Datatypes (Meeting, MeetingId, Availability, UserId)
 import Database.Persist.Sqlite (insert, updateWhere, selectFirst, fromSqlKey, toSqlKey)
 import Database.Persist ((==.), (=.), Entity(..))
 import Utils.Functions (meetingToEntity, entityToMeeting, availabilityToEntity)
-import Integration.Init (EntityField(MeetingEntityMeetingId, MeetingEntityAvailabilities, MeetingEntityUserIds), MeetingEntity(..), AvailabilityEntity (..))
+import Utils.DbInit (EntityField(MeetingEntityMeetingId, MeetingEntityAvailabilities, MeetingEntityUserIds), MeetingEntity(..), AvailabilityEntity (..))
 import Utils.Endpoint (SqlQuery)
 import Control.Monad (void)
 

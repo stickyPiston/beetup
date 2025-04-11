@@ -20,7 +20,7 @@ import Data.UUID.V4 (nextRandom)
 import Data.IORef (modifyIORef', readIORef)
 import Utils.Functions
 import Integration.UserStore (findUserByUsername, insertUser)
-import Integration.Init (UserEntity(UserEntity))
+import Utils.DbInit (UserEntity(UserEntity))
 import Utils.Endpoint (withDB, DBPool)
 
 data LoginParams = LoginParams
@@ -91,7 +91,7 @@ logout sessions = do
     Just sessionID ->
       liftIO $ modifyIORef' sessions (M.delete sessionID)
     _ -> return ()
-  send $ raw status200 [] ""
+  send $raw status200 [] ""
 
 login :: Sessions -> DBPool -> ResponderM a
 login sessions pool = do

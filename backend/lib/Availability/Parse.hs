@@ -1,4 +1,4 @@
-module Core.Availability.Parse (parseOccupancies) where
+module Availability.Parse (parseOccupancies) where
 
 import Data.ByteString.Lazy (ByteString)
 import Data.Tuple (swap)

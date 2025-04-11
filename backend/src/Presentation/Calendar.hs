@@ -2,7 +2,7 @@ module Presentation.Calendar where
 
 import Utils.Datatypes (Sessions)
 import Presentation.Authentication (requireSession)
-import Core.Availability.Parse (parseOccupancies)
+import Availability.Parse (parseOccupancies)
 import qualified Data.Text as T
 import Integration.OccupancyStore (storeUserOccupancies)
 import Control.Monad.IO.Class (MonadIO(liftIO))

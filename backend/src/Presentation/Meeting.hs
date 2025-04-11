@@ -17,7 +17,7 @@ import Data.Aeson.Types (ToJSON(toJSON))
 import Utils.Endpoint (DBPool, withDB)
 import Database.Persist (selectList, Entity (..))
 import Database.Persist.Sql (fromSqlKey)
-import Integration.Init (MeetingEntity(..), AvailabilityEntity(..))
+import Utils.DbInit (MeetingEntity(..), AvailabilityEntity(..))
 import Data.List (nub, sortOn, delete, maximumBy)
 import Data.Function (on)
 

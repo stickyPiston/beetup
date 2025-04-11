@@ -10,45 +10,83 @@ build-type:         Simple
 common warnings
     ghc-options: -Wall -Wno-name-shadowing
 
-executable beetup-backend
+library
+  exposed-modules:
+      Availability
+      Availability.Parse
+      Utils.Datatypes
+      Utils.Endpoint
+      Utils.Functions
+      Utils.DbInit
+  hs-source-dirs: lib
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends: base >=4.7 && <5
+               , bytestring
+               , conduit
+               , containers
+               , data-default
+               , iCalendar >= 0.4.1.1
+               , monad-logger
+               , mtl
+               , persistent
+               , persistent-sqlite
+               , persistent-template
+               , resource-pool
+               , text
+               , time
+               , twain
+               , uuid
+  default-language: Haskell2010
+
+executable beetup-backend-exe
     import:             warnings
     main-is:            Main.hs
     other-modules:      Integration.UserStore
                       , Integration.OccupancyStore
                       , Integration.MeetingStore
-                      , Integration.Init
-                      , Utils.Datatypes
-                      , Utils.Functions
-                      , Utils.Endpoint
                       , Presentation.Authentication
                       , Presentation.User
                       , Presentation.Calendar
                       , Presentation.Occupancies
                       , Presentation.Meeting
-                      , Core.Availability
-                      , Core.Availability.Parse
     default-extensions: OverloadedStrings
                       , ViewPatterns
                       , DuplicateRecordFields
     build-depends:      base ^>=4.17.2.0
-                      , twain
-                      , warp
-                      , text
-                      , containers
                       , aeson
+                      , beetup-backend
+                      , containers
                       , http-types
+                      , monad-logger
+                      , password
                       , persistent
                       , persistent-sqlite
                       , persistent-template
+                      , text
                       , time
-                      , mtl
-                      , password
+                      , twain
                       , uuid
-                      , iCalendar >= 0.4.1.1
-                      , bytestring
-                      , data-default
-                      , monad-logger
-                      , resource-pool
-                      , conduit
+                      , warp
     hs-source-dirs:     src
     default-language:   Haskell2010
+
+test-suite beetup-backend-test
+  type: exitcode-stdio-1.0
+  main-is: test.hs
+  other-modules:
+      HelperFunctions
+      TimeSlotTests
+      AvailabilityTests
+      Arbitraries
+  hs-source-dirs: test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      Unique >=0.4.7.9
+    , base >=4.7 && <5
+    , containers >=0.7
+    , beetup-backend
+    , tasty >=1.5.3
+    , tasty-quickcheck >=0.1.11.1
+    , time
+    , text
+  default-language: Haskell2010

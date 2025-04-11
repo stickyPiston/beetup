@@ -3,7 +3,7 @@ module Integration.UserStore where
 import Data.Text (Text)
 import Database.Persist
 import Database.Persist.Sqlite (toSqlKey, fromSqlKey)
-import Integration.Init
+import Utils.DbInit
 import Utils.Datatypes (User, UserId)
 import Utils.Functions (entityToUser)
 import Utils.Endpoint (SqlQuery)
