@@ -7,9 +7,10 @@ import Json.Decode as Decode exposing (Decoder, string, list, int)
 import Json.Decode.Pipeline exposing (required)
 import Json.Encode as Encode
 
-import Utils.DateTime exposing (dateDecoder, timeDecoder, compareDateTime, utcTimeDecoder)
+import Utils.DateTime exposing (dateDecoder, timeDecoder, compareDateTime, utcTimeDecoder, DateTime)
 import DateTime exposing (getDate, getTime)
 import Utils.DateTime exposing (datetimeEncoder)
+import Json.Decode as Decode
 
 -- DATA TYPES
 
@@ -35,6 +36,13 @@ type alias Meeting =
     , title : String
     , description : String
     , userIds : List String
+    , maximumAttendancy : Maybe MaximumAttendancy
+    }
+
+type alias MaximumAttendancy =
+    { users : List String
+    , start : DateTime
+    , end : DateTime
     }
 
 type alias User =
@@ -54,6 +62,13 @@ meetingDecoder = Decode.succeed Meeting
     |> required "title" string
     |> required "description" string
     |> required "userIds" (list int |> Decode.map (List.map String.fromInt))
+    |> required "maximumAttendancy" (maximumAttendancyDecoder |> Decode.map Just)
+
+maximumAttendancyDecoder : Decoder MaximumAttendancy
+maximumAttendancyDecoder = Decode.succeed MaximumAttendancy
+    |> required "users" (list int |> Decode.map (List.map String.fromInt))
+    |> required "start" utcTimeDecoder
+    |> required "end" utcTimeDecoder
 
 availabilityDecoder : Decoder Availability
 availabilityDecoder =

@@ -18,7 +18,8 @@ import Utils.Endpoint (DBPool, withDB)
 import Database.Persist (selectList, Entity (..))
 import Database.Persist.Sql (fromSqlKey)
 import Integration.Init (MeetingEntity(..), AvailabilityEntity(..))
-import Data.List (nub)
+import Data.List (nub, sortOn, delete, maximumBy)
+import Data.Function (on)
 
 data MeetingParams = MeetingParams {
     title       :: Text,
@@ -57,7 +58,8 @@ data MeetingResponse = MeetingResponse {
   days :: [UTCTime],
   userIds :: [UserId],
   description :: Text,
-  availabilities :: [AvailabilityResponse]
+  availabilities :: [AvailabilityResponse],
+  maximumAttendancy :: Maybe Attendancy
 }
 
 data AvailabilityResponse = AvailabilityResponse {
@@ -70,7 +72,7 @@ instance ToJSON AvailabilityResponse where
   toJSON (AvailabilityResponse s e id) = object ["start" .= s, "end" .= e, "userId" .= id]
 
 instance ToJSON MeetingResponse where
-  toJSON (MeetingResponse mId t s e days uIds desc as) = object
+  toJSON (MeetingResponse mId t s e days uIds desc as attendancy) = object
     [ "id" .= mId
     , "title" .= t
     , "start" .= formatTime defaultTimeLocale "%T" s
@@ -79,6 +81,7 @@ instance ToJSON MeetingResponse where
     , "userIds" .= uIds
     , "availabilities" .= as
     , "description" .= desc
+    , "maximumAttendancy" .= attendancy
     ]
 
 instance FromJSON AvailabilityParams where
@@ -86,7 +89,7 @@ instance FromJSON AvailabilityParams where
     <$> o .: "start"
     <*> o .: "end"
 
-meetingToResponse :: Meeting -> MeetingResponse
+meetingToResponse :: Meeting -> Maybe Attendancy -> MeetingResponse
 meetingToResponse (Meeting mId t s e days uIds desc as) = MeetingResponse 
   mId 
   t 
@@ -96,6 +99,7 @@ meetingToResponse (Meeting mId t s e days uIds desc as) = MeetingResponse
   uIds 
   desc
   (map availabilityToResponse as)
+ 
 
 availabilityToResponse :: Availability -> AvailabilityResponse
 availabilityToResponse (Availability s e uId) = AvailabilityResponse s e uId
@@ -122,6 +126,23 @@ addAvailabilitiesToMeeting sessions pool = do
   withDB pool (updateAvailabilities mId uId bodyAps)
   send $ status status200 $ text "Done."
 
+data ScanStep
+  = Join { stepDate :: UTCTime, stepUser :: UserId }
+  | Leave { stepDate :: UTCTime, stepUser :: UserId }
+
+data Attendancy = Attendancy
+  { users :: [UserId]
+  , start :: UTCTime
+  , end   :: UTCTime
+  } deriving Show
+
+instance ToJSON Attendancy where
+  toJSON (Attendancy users start end) = object
+    [ "users" .= users
+    , "start" .= start
+    , "end" .= end
+    ]
+
 getMeetingWithId :: Sessions -> DBPool -> ResponderM a
 getMeetingWithId sessions pool = do
   uId <- requireSession sessions
@@ -131,8 +152,25 @@ getMeetingWithId sessions pool = do
     Nothing -> send $ status status400 $ text "No such meeting"
     Just meeting@Meeting { mAvailabilities } ->
       let ownAvailabilities = filter (\(Availability _ _ id) -> id == uId) mAvailabilities
-          response = meetingToResponse meeting { mAvailabilities = ownAvailabilities }
+          response = meetingToResponse meeting { mAvailabilities = ownAvailabilities } (findMaximumAttendancy mAvailabilities)
        in send $ status status200 $ json response
+
+findMaximumAttendancy :: [Availability] -> Maybe Attendancy
+findMaximumAttendancy avails =
+  let scanSteps = sortOn stepDate $ concatMap toScanStep avails
+      scanList = scanl trackUsers [] scanSteps
+      dates = map stepDate scanSteps
+      attendencies = zipWith3 Attendancy (tail scanList) dates (tail dates)
+   in case attendencies of
+    [] -> Nothing
+    _ -> Just $ maximumBy (compare `on` (length . users)) attendencies
+  where
+    trackUsers :: [UserId] -> ScanStep -> [UserId]
+    trackUsers ids (Join _ id)  = id : ids
+    trackUsers ids (Leave _ id) = delete id ids
+
+    toScanStep :: Availability -> [ScanStep]
+    toScanStep (Availability start end uId) = [Join start uId, Leave end uId]
 
 availabilityParamsToAvailabilities :: UserId -> [AvailabilityParams] -> [Availability]
 availabilityParamsToAvailabilities uId = map (\ (AvailabilityParams s e) -> Availability s e uId)

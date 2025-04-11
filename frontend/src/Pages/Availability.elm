@@ -12,6 +12,8 @@ import Maybe.Extra as Maybe
 import List.Extra as List
 import Http
 import Json.Encode as Encode
+import Models exposing (MaximumAttendancy)
+import Utils.DateTime exposing (formatDateTime)
 
 -- MODEL
 
@@ -27,6 +29,7 @@ type alias Model =
     , id : String
     , error : Maybe String
     , isOwn : Bool
+    , maximumAttendancy : Maybe MaximumAttendancy
     }
 
 init : String -> (Model, Cmd Msg)
@@ -37,6 +40,7 @@ init id =
       , id = id
       , error = Nothing
       , isOwn = True
+      , maximumAttendancy = Nothing
       }
     , Http.get
         { url = "http://localhost:8001/meeting/" ++ id
@@ -110,6 +114,7 @@ update user msg model =
                   , endTime = meeting.end
                   , days = parsedDaysDict
                   , isOwn = List.member user.id meeting.userIds
+                  , maximumAttendancy = meeting.maximumAttendancy
                   }
                 , Cmd.none
                 )
@@ -155,7 +160,16 @@ view model =
         viewAddButton = if model.isOwn
             then []
             else [button [onClick AddMeetingToOwnMeetings] [text "Add to your meetings"]]
-     in viewError ++ viewAddButton ++ viewContent
+        viewMaybeMaximumAttendancy = case model.maximumAttendancy of
+            Just a -> viewMaximumAttendancy a
+            Nothing -> []
+     in viewError ++ viewAddButton ++ viewMaybeMaximumAttendancy ++ viewContent
+
+viewMaximumAttendancy : MaximumAttendancy -> List (Html Msg)
+viewMaximumAttendancy { users, start, end } =
+    [ text <| "The maxmimum attendancy is " ++ String.fromInt (List.length users) ++ " people. "
+        ++ "It is from " ++ formatDateTime start ++ " until " ++ formatDateTime end ++ "."
+    ]
 
 viewDay : Time -> Time -> Int -> (Date, List AvailabilityDraft) -> Html Msg
 viewDay startTime endTime dayidx (day, availabilities) =
